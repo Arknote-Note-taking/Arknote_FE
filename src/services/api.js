@@ -25,4 +25,16 @@ API.interceptors.response.use(
   }
 );
 
-export default API;
+const forgotPassword = (email) => API.post('/auth/forgot-password', { email });
+const resetPassword = (email, code, newPassword, confirmPassword) => 
+  API.post('/auth/reset-password', { email, code, newPassword, confirmPassword });
+
+export default {
+  ...API,
+  forgotPassword,
+  resetPassword,
+  get: API.get,
+  post: API.post,
+  put: API.put,
+  delete: API.delete
+};

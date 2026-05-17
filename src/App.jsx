@@ -6,6 +6,11 @@ import { SocketProvider } from './context/SocketContext';
 import MainLayout from './layouts/MainLayout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
+import AuthCallback from './pages/AuthCallback';
+import SetPassword from './pages/SetPassword';
 
 import Overview from './pages/Overview';
 import DocumentList from './pages/DocumentList';
@@ -28,6 +33,11 @@ const AppContent = () => {
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/" />} />
+        <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/set-password" element={<SetPassword />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         
         <Route path="/" element={<PrivateRoute><Overview /></PrivateRoute>} />
         <Route path="/documents" element={<PrivateRoute><DocumentList /></PrivateRoute>} />

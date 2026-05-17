@@ -4,12 +4,14 @@ import { AuthContext } from '../context/AuthContext';
 import API from '../services/api';
 import { useState, useContext } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import AuthLayout from '../layouts/AuthLayout';
+import { supabase } from '../config/supabase';
 
 const Login = () => {
   const [email, setEmail] = useState('');
-   const [password, setPassword] = useState('');
-   const [showPassword, setShowPassword] = useState(false);
-   const { login } = useContext(AuthContext);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -29,9 +31,24 @@ const Login = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/auth/callback'
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi đăng nhập bằng Google');
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-sm bg-surface p-8 rounded-xl">
+    <AuthLayout>
+      <div className="bg-surface p-8 rounded-xl shadow-2xl border border-border/50">
         <h2 className="text-center text-3xl font-extrabold text-text-primary mb-2 tracking-tight">Welcome back!</h2>
         <p className="text-center text-sm text-text-secondary font-medium mb-8">Enter your Credentials to access your account</p>
 
@@ -50,7 +67,7 @@ const Login = () => {
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-xs font-semibold text-text-primary">Password</label>
-              <a href="#" className="text-[10px] text-primary hover:underline font-medium">Forgot password</a>
+              <Link to="/forgot-password" className="text-[10px] text-primary hover:underline font-medium">Forgot password?</Link>
             </div>
             <div className="relative">
               <input
@@ -94,14 +111,14 @@ const Login = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button className="flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors">
+        <div className="flex flex-col space-y-3">
+          <button 
+            onClick={handleGoogleLogin}
+            type="button"
+            className="w-full flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors"
+          >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
             <span className="text-[10px] font-semibold text-text-primary">Sign in with Google</span>
-          </button>
-          <button className="flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors">
-            <img src="https://www.svgrepo.com/show/511330/apple-173.svg" alt="Apple" className="w-4 h-4 opacity-80" />
-            <span className="text-[10px] font-semibold text-text-primary">Sign in with Apple</span>
           </button>
         </div>
 
@@ -109,7 +126,7 @@ const Login = () => {
           Don't have an account? <Link to="/register" className="text-primary hover:underline font-semibold ml-1">Sign Up</Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   );
 };
 
