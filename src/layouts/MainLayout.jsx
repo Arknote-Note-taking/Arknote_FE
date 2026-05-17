@@ -78,7 +78,11 @@ const MainLayout = ({ children }) => {
             <NavLink to="/profile" className="flex items-center space-x-2 border border-border p-1 rounded-full cursor-pointer hover:bg-black/5 hover:border-primary/30 transition group">
               <div className="w-7 h-7 bg-text-secondary/10 group-hover:bg-primary/10 rounded-full flex items-center justify-center transition-colors overflow-hidden">
                 {user?.avatar_url ? (
-                  <img src={`http://localhost:5000${user.avatar_url}`} alt="Avatar" className="w-full h-full object-cover" />
+                  <img 
+                    src={user.avatar_url.startsWith('http') ? user.avatar_url : `http://localhost:5000${user.avatar_url}`} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover" 
+                  />
                 ) : (
                   <UserIcon className="w-4 h-4 text-text-secondary group-hover:text-primary transition-colors" />
                 )}

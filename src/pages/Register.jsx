@@ -4,6 +4,8 @@ import { AuthContext } from '../context/AuthContext';
 import API from '../services/api';
 import { useContext, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import AuthLayout from '../layouts/AuthLayout';
+import { supabase } from '../config/supabase';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -34,9 +36,24 @@ const Register = () => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/auth/callback'
+        }
+      });
+      if (error) throw error;
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi đăng nhập bằng Google');
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
-      <div className="w-full max-w-sm bg-surface p-8 rounded-xl">
+    <AuthLayout>
+      <div className="bg-surface p-8 rounded-xl shadow-2xl border border-border/50">
         <h2 className="text-center text-3xl font-extrabold text-text-primary mb-8 tracking-tight">Get Started Now</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -107,7 +124,9 @@ const Register = () => {
 
           <div className="flex items-center space-x-2 pt-2">
             <input type="checkbox" id="agree" className="rounded border-border text-primary focus:ring-primary rounded-sm" required />
-            <label htmlFor="agree" className="text-[10px] text-text-secondary font-medium">I agree to the <a href="#" className="font-bold border-b border-text-secondary">terms & policy</a></label>
+            <label htmlFor="agree" className="text-[10px] text-text-secondary font-medium">
+              I agree to the <Link to="/terms" className="font-bold border-b border-text-secondary hover:text-primary hover:border-primary transition-colors">terms</Link> & <Link to="/privacy" className="font-bold border-b border-text-secondary hover:text-primary hover:border-primary transition-colors">policy</Link>
+            </label>
           </div>
 
           <button
@@ -127,14 +146,14 @@ const Register = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button className="flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors">
+        <div className="flex flex-col space-y-3">
+          <button 
+            type="button"
+            onClick={handleGoogleLogin}
+            className="w-full flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors"
+          >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
             <span className="text-[10px] font-semibold text-text-primary">Sign in with Google</span>
-          </button>
-          <button className="flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors">
-            <img src="https://www.svgrepo.com/show/511330/apple-173.svg" alt="Apple" className="w-4 h-4 opacity-80" />
-            <span className="text-[10px] font-semibold text-text-primary">Sign in with Apple</span>
           </button>
         </div>
 
@@ -142,7 +161,7 @@ const Register = () => {
           Have an account? <Link to="/login" className="text-primary hover:underline ml-1 font-semibold">Sign In</Link>
         </p>
       </div>
-    </div>
+    </AuthLayout>
   );
 };
 

@@ -1,17 +1,40 @@
 import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { User, Mail, Shield, Calendar, Edit3, Save, X, Loader2 } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Edit3, Save, X, Loader2, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
-  const { user, login } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const { user, login, logout } = useContext(AuthContext);
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Change Password State
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passLoading, setPassLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => {
+        setCountdown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -71,6 +94,53 @@ const Profile = () => {
     }
   };
 
+  const handleSendOtp = async () => {
+    setPassLoading(true);
+    try {
+      await API.post('/auth/forgot-password', { email: profile.email });
+      toast.success('Mã OTP đã được gửi đến email của bạn');
+      setOtpSent(true);
+      setCountdown(60);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi gửi OTP');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) return toast.error('Mật khẩu xác nhận không khớp');
+    if (newPassword.length < 6) return toast.error('Mật khẩu phải có ít nhất 6 ký tự');
+
+    setPassLoading(true);
+    try {
+      await API.post('/auth/reset-password', { 
+        email: profile.email, 
+        code: otp, 
+        newPassword, 
+        confirmPassword 
+      });
+      toast.success('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
+      setIsChangingPassword(false);
+      setOtpSent(false);
+      setOtp('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+      setCountdown(0);
+      setTimeout(() => {
+        logout();
+        navigate('/login');
+      }, 1500);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Mã OTP không hợp lệ hoặc có lỗi xảy ra');
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
   if (loading) return (
     <div className="flex justify-center items-center h-full">
       <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -78,8 +148,9 @@ const Profile = () => {
   );
 
   const getAvatarSource = () => {
-    if (profile?.avatar_url) return `http://localhost:5000${profile.avatar_url}`;
-    return null;
+    if (!profile?.avatar_url) return null;
+    if (profile.avatar_url.startsWith('http')) return profile.avatar_url;
+    return `http://localhost:5000${profile.avatar_url}`;
   };
 
   return (
@@ -220,6 +291,139 @@ const Profile = () => {
                 </div>
               )}
             </form>
+          </div>
+
+          {/* Change Password Block */}
+          <div className="bg-surface border border-border rounded-3xl p-8 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-bold text-text-primary">Đổi mật khẩu</h3>
+                <p className="text-xs text-text-secondary mt-1">Cập nhật mật khẩu để bảo vệ tài khoản</p>
+              </div>
+              {!isChangingPassword && (
+                <button
+                  onClick={() => setIsChangingPassword(true)}
+                  className="flex items-center space-x-2 text-primary hover:bg-primary/5 px-4 py-2 rounded-xl transition-all font-semibold text-sm border border-primary/20"
+                >
+                  <Shield className="w-4 h-4" />
+                  <span>Đổi mật khẩu</span>
+                </button>
+              )}
+            </div>
+
+            {isChangingPassword && !otpSent && (
+              <div className="space-y-4">
+                <p className="text-sm text-text-secondary">
+                  Hệ thống sẽ gửi một mã OTP gồm 6 chữ số đến email <strong>{profile.email}</strong> của bạn để xác nhận yêu cầu đổi mật khẩu.
+                </p>
+                <div className="flex items-center space-x-3 pt-2">
+                  <button
+                    onClick={handleSendOtp}
+                    disabled={passLoading}
+                    className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold text-sm py-3 rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2"
+                  >
+                    {passLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    <span>Gửi mã OTP</span>
+                  </button>
+                  <button
+                    onClick={() => setIsChangingPassword(false)}
+                    className="px-6 py-3 border border-border bg-background hover:bg-black/5 text-text-secondary font-bold text-sm rounded-2xl transition-all"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {isChangingPassword && otpSent && (
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Mã xác nhận (OTP)</label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    placeholder="Nhập 6 số OTP từ email"
+                    className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-text-primary focus:border-primary focus:ring-2 focus:ring-primary/5 outline-none transition-all"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Mật khẩu mới</label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-text-primary focus:border-primary focus:ring-2 focus:ring-primary/5 outline-none transition-all pr-12"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
+                      tabIndex="-1"
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Xác nhận mật khẩu</label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-text-primary focus:border-primary focus:ring-2 focus:ring-primary/5 outline-none transition-all pr-12"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
+                      tabIndex="-1"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-4">
+                  <button
+                    type="submit"
+                    disabled={passLoading}
+                    className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold text-sm py-3 rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2"
+                  >
+                    {passLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>Xác nhận đổi mật khẩu</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={countdown > 0 || passLoading}
+                    onClick={handleSendOtp}
+                    className="px-6 py-3 border border-primary/20 text-primary hover:bg-primary/5 disabled:opacity-50 font-bold text-sm rounded-2xl transition-all whitespace-nowrap flex items-center space-x-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>{countdown > 0 ? `Gửi lại (${countdown}s)` : 'Gửi lại mã'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingPassword(false);
+                      setOtpSent(false);
+                      setOtp('');
+                      setCountdown(0);
+                      setShowNewPassword(false);
+                      setShowConfirmPassword(false);
+                    }}
+                    className="px-6 py-3 border border-border bg-background hover:bg-black/5 text-text-secondary font-bold text-sm rounded-2xl transition-all"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
 
           <div className="bg-[#FEF2F2] border border-[#FEE2E2] rounded-3xl p-6 flex items-center justify-between group">
