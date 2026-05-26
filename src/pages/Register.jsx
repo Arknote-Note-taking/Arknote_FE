@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
 import API from '../services/api';
 import { useContext, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import AuthLayout from '../layouts/AuthLayout';
 import { supabase } from '../config/supabase';
 
@@ -53,7 +53,13 @@ const Register = () => {
 
   return (
     <AuthLayout>
-      <div className="bg-surface p-8 rounded-xl shadow-2xl border border-border/50">
+      <div className="p-8">
+        <div className="mb-6">
+          <Link to="/" className="inline-flex items-center space-x-1.5 text-text-secondary hover:text-primary text-xs font-bold transition-all">
+            <ArrowLeft className="w-4 h-4" />
+            <span>Quay về trang chủ</span>
+          </Link>
+        </div>
         <h2 className="text-center text-3xl font-extrabold text-text-primary mb-8 tracking-tight">Get Started Now</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -150,7 +156,7 @@ const Register = () => {
           <button 
             type="button"
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 transition-colors"
+            className="w-full flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-4 h-4" />
             <span className="text-[10px] font-semibold text-text-primary">Sign in with Google</span>

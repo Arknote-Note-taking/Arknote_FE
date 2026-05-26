@@ -154,7 +154,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl w-full mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-text-primary tracking-tight">Hồ sơ cá nhân</h1>
         <p className="text-text-secondary mt-1">Quản lý thông tin tài khoản và tùy chỉnh cá nhân</p>
@@ -185,8 +185,8 @@ const Profile = () => {
               <h2 className="text-xl font-bold text-text-primary mb-1">{profile.name}</h2>
               <p className="text-sm text-text-secondary font-medium mb-6 uppercase tracking-wider">{profile.role}</p>
 
-              <div className="inline-flex items-center space-x-2 px-4 py-1.5 bg-[#DCFCE7] text-[#16A34A] rounded-full text-[10px] font-bold border border-[#16A34A]/10">
-                <span className="w-1.5 h-1.5 bg-[#16A34A] rounded-full animate-pulse"></span>
+              <div className="inline-flex items-center space-x-2 px-4 py-1.5 bg-[#DCFCE7] dark:bg-[#16A34A]/15 text-[#16A34A] dark:text-[#4ADE80] rounded-full text-[10px] font-bold border border-[#16A34A]/20">
+                <span className="w-1.5 h-1.5 bg-[#16A34A] dark:bg-[#4ADE80] rounded-full animate-pulse"></span>
                 <span>Active Account</span>
               </div>
             </div>

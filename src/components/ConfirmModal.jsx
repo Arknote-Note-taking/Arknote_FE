@@ -1,6 +1,6 @@
 import React from 'react';
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Xác nhận' }) => {
   if (!isOpen) return null;
 
   return (
@@ -22,7 +22,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message }) => {
             }} 
             className="px-4 py-2 text-sm font-medium text-white bg-[#dc2626] hover:bg-[#b91c1c] rounded-lg transition-colors shadow-sm"
           >
-            Xác nhận xóa
+            {confirmText}
           </button>
         </div>
       </div>

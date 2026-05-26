@@ -6,40 +6,162 @@
 
   --color-primary: #32813D;
   --color-primary-dark: #276831;
-  --color-secondary: #E3F2E6; /* Light green for active states */
-  --color-background: #F8F9FA;
-  --color-surface: #FFFFFF;
-  --color-text-primary: #1F2937;
-  --color-text-secondary: #6B7280;
-  --color-border: #E5E7EB;
+  --color-secondary: var(--color-secondary-val, #E3F2E6);
+  --color-background: var(--bg-color-main, #F8F9FA);
+  --color-surface: var(--bg-color-surface, #FFFFFF);
+  --color-text-primary: var(--txt-color-primary, #1F2937);
+  --color-text-secondary: var(--txt-color-secondary, #6B7280);
+  --color-border: var(--border-color, #E5E7EB);
+}
+
+:root {
+  --bg-color-main: #F4F6F8;
+  --bg-color-surface: #FFFFFF;
+  --txt-color-primary: #1A202C;
+  --txt-color-secondary: #64748B;
+  --border-color: #E2E8F0;
+  --color-secondary-val: #E3F2E6;
+
+  /* Tag colors - light mode */
+  --tag-neutral-bg: #F1F5F9;
+  --tag-neutral-text: #475569;
+}
+
+.dark {
+  --bg-color-main: #0D1117;
+  --bg-color-surface: #161B22;
+  --txt-color-primary: #E6EDF3;
+  --txt-color-secondary: #8B949E;
+  --border-color: #30363D;
+  --color-secondary-val: #1A3020;
+
+  /* Tag colors - dark mode */
+  --tag-neutral-bg: #21262D;
+  --tag-neutral-text: #8B949E;
 }
 
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: var(--font-family-body);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 * {
   box-sizing: border-box;
 }
 
+/* ===================== */
+/* SCROLLBAR STYLES */
+/* ===================== */
 ::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: var(--border-color);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: var(--txt-color-secondary);
 }
 
-/* Utilities for pill background colors based on text */
-.tag-nhansu { background-color: #E0F2FE; color: #0284C7; } /* Blue */
-.tag-hanhchinh { background-color: #FAE8FF; color: #C026D3; } /* Fuchsia/Pink */
-.tag-phapluat { background-color: #FEF3C7; color: #D97706; } /* Yellow/Orange */
-.tag-hoctap { background-color: #DCFCE7; color: #16A34A; } /* Green */
+/* Custom scrollbar class for specific areas */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+/* ===================== */
+/* FORM ELEMENTS DARK MODE */
+/* ===================== */
+select,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea {
+  color-scheme: light;
+  background-color: var(--bg-color-surface);
+  color: var(--txt-color-primary);
+  border-color: var(--border-color);
+}
+
+.dark select,
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark textarea {
+  color-scheme: dark;
+}
+
+/* ===================== */
+/* TAG / BADGE COLOR UTILITIES */
+/* ===================== */
+
+/* Light mode: saturated, pastel */
+/* Dark mode: muted, semi-transparent */
+
+.tag-nhansu {
+  background-color: #E0F2FE;
+  color: #0284C7;
+}
+.dark .tag-nhansu {
+  background-color: rgba(2, 132, 199, 0.15);
+  color: #38BDF8;
+}
+
+.tag-hanhchinh {
+  background-color: #FAE8FF;
+  color: #C026D3;
+}
+.dark .tag-hanhchinh {
+  background-color: rgba(192, 38, 211, 0.15);
+  color: #E879F9;
+}
+
+.tag-phapluat {
+  background-color: #FEF3C7;
+  color: #D97706;
+}
+.dark .tag-phapluat {
+  background-color: rgba(217, 119, 6, 0.15);
+  color: #FBB024;
+}
+
+.tag-hoctap {
+  background-color: #DCFCE7;
+  color: #16A34A;
+}
+.dark .tag-hoctap {
+  background-color: rgba(22, 163, 74, 0.15);
+  color: #4ADE80;
+}
+
+/* ===================== */
+/* SIDEBAR ACTIVE STATE */
+/* ===================== */
+.sidebar-active {
+  background-color: var(--color-secondary-val);
+  color: var(--color-primary);
+}
+
+/* ===================== */
+/* GLASS / SURFACE OVERLAYS */
+/* ===================== */
+.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* ===================== */
+/* TRANSITION SMOOTHNESS */
+/* ===================== */
+.transition-theme {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
