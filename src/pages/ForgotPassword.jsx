@@ -60,7 +60,7 @@ const ForgotPassword = () => {
 
   return (
     <AuthLayout>
-      <div className="bg-surface p-8 rounded-xl shadow-2xl border border-border/50">
+      <div className="p-8">
         <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 bg-surface border border-border rounded-full flex items-center justify-center mb-4">
             <KeyRound className="w-6 h-6 text-primary" />

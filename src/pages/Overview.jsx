@@ -5,11 +5,11 @@ import { useNavigate } from 'react-router-dom';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
-  if (s.includes('nhân sự')) return 'bg-[#E0F2FE] text-[#0284C7]';
-  if (s.includes('hành chính')) return 'bg-[#FAE8FF] text-[#C026D3]';
-  if (s.includes('pháp luật')) return 'bg-[#FEF3C7] text-[#D97706]';
-  if (s.includes('học tập')) return 'bg-[#DCFCE7] text-[#16A34A]';
-  return 'bg-gray-100 text-gray-600';
+  if (s.includes('nhân sự')) return 'bg-[#E0F2FE] text-[#0284C7] dark:bg-[#0284C7]/15 dark:text-[#38BDF8]';
+  if (s.includes('hành chính')) return 'bg-[#FAE8FF] text-[#C026D3] dark:bg-[#C026D3]/15 dark:text-[#E879F9]';
+  if (s.includes('pháp luật')) return 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#FBB024]';
+  if (s.includes('học tập')) return 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#16A34A]/15 dark:text-[#4ADE80]';
+  return 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300';
 };
 
 const Overview = () => {
@@ -31,7 +31,7 @@ const Overview = () => {
   if (!stats) return <div className="flex justify-center items-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1600px] w-full mx-auto">
       <h1 className="text-2xl font-bold text-text-primary mb-1">Tổng quan</h1>
       <p className="text-text-secondary text-sm mb-8">Thống kê hệ thống quản lý tài liệu AI</p>
 
@@ -84,7 +84,7 @@ const Overview = () => {
         <h3 className="font-bold text-text-primary mb-4">Tài liệu gần đây</h3>
         <div className="space-y-4">
            {stats.recentDocs.map((doc, idx) => (
-             <div key={idx} onClick={() => navigate(`/documents/${doc.id}`)} className="flex justify-between items-center text-sm border-b border-border pb-3 cursor-pointer hover:bg-black/5 p-2 rounded transition-colors">
+             <div key={idx} onClick={() => navigate(`/documents/${doc.id}`)} className="flex justify-between items-center text-sm border-b border-border pb-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 rounded transition-colors">
                <div>
                  <p className="font-medium text-text-primary">{doc.title}</p>
                  <p className="text-text-secondary text-xs mt-0.5">{new Date(doc.created_at).toISOString().split('T')[0]}</p>

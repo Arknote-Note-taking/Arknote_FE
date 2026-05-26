@@ -5,13 +5,12 @@ import { Network, Loader2 } from 'lucide-react';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
-  if (s.includes('nhân sự')) return 'bg-[#E0F2FE] text-[#0284C7]';
-  if (s.includes('hành chính')) return 'bg-[#FAE8FF] text-[#C026D3]';
-  if (s.includes('pháp luật')) return 'bg-[#FEF3C7] text-[#D97706]';
-  if (s.includes('học tập')) return 'bg-[#DCFCE7] text-[#16A34A]';
-  return 'bg-gray-100 text-gray-600';
+  if (s.includes('nhân sự')) return 'bg-[#E0F2FE] text-[#0284C7] dark:bg-[#0284C7]/15 dark:text-[#38BDF8]';
+  if (s.includes('hành chính')) return 'bg-[#FAE8FF] text-[#C026D3] dark:bg-[#C026D3]/15 dark:text-[#E879F9]';
+  if (s.includes('pháp luật')) return 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#FBB024]';
+  if (s.includes('học tập')) return 'bg-[#DCFCE7] text-[#16A34A] dark:bg-[#16A34A]/15 dark:text-[#4ADE80]';
+  return 'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300';
 };
-
 const getSubjectColorStr = (subject) => {
   const s = subject?.toLowerCase?.() || '';
   if (s.includes('nhân sự')) return '#3B82F6'; 
@@ -158,7 +157,7 @@ const GraphView = () => {
   };
 
   return (
-    <div className="max-w-7xl h-full flex flex-col">
+    <div className="max-w-[1600px] w-full mx-auto h-full flex flex-col">
       <h1 className="text-2xl font-bold text-text-primary mb-1">Knowledge Map</h1>
       <p className="text-text-secondary text-sm mb-6">Bản đồ liên kết giữa các tài liệu — giống skill tree</p>
 
