@@ -1,10 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Search, Folder, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const FolderSelectModal = ({ isOpen, onClose, folders, onSelect }) => {
+const FolderSelectModal = ({ 
+  isOpen, 
+  onClose, 
+  folders, 
+  onSelect,
+  isMultiSelect = false,
+  title = "Chọn thư mục để hỏi đáp",
+  desc = "Chọn thư mục nhóm có sẵn để AI tập trung phân tích nội dung tổng hợp từ tất cả tài liệu bên trong.",
+  confirmText = "Xác nhận"
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedIds, setSelectedIds] = useState([]);
   const ITEMS_PER_PAGE = 4;
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIds([]);
+      setSearchQuery('');
+      setCurrentPage(1);
+    }
+  }, [isOpen]);
 
   const filteredFolders = useMemo(() => {
     if (!searchQuery.trim()) return folders || [];
@@ -37,10 +55,10 @@ const FolderSelectModal = ({ isOpen, onClose, folders, onSelect }) => {
           <X className="w-5 h-5"/>
         </button>
         
-        <h2 className="text-2xl font-bold text-text-primary mb-2">Chọn thư mục để hỏi đáp</h2>
-        <p className="text-text-secondary text-sm mb-6">Chọn thư mục nhóm có sẵn để AI tập trung phân tích nội dung tổng hợp từ tất cả tài liệu bên trong.</p>
+        <h2 className="text-2xl font-bold text-text-primary mb-2">{title}</h2>
+        <p className="text-text-secondary text-sm mb-6">{desc}</p>
         
-        <div className="relative mb-4">
+        <div className="relative mb-4 shrink-0">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
           <input 
             type="text" 
@@ -53,28 +71,53 @@ const FolderSelectModal = ({ isOpen, onClose, folders, onSelect }) => {
 
         {/* List of Folders */}
         <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar mb-4 pr-1">
-          {currentFolders.length > 0 ? currentFolders.map(folder => (
-            <div 
-              key={folder.id}
-              onClick={() => onSelect(folder.id)}
-              className="group border border-border bg-background hover:bg-black/5 rounded-xl p-4 flex items-start space-x-4 cursor-pointer transition-colors"
-            >
-              <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform">
-                <Folder className="w-6 h-6" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-text-primary text-sm truncate">{folder.name}</h3>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className="text-xs bg-black/5 text-text-secondary px-2 py-0.5 rounded-md font-medium">
-                    {folder.docCount || folder.documents?.length || 0} tài liệu
-                  </span>
-                  <span className="text-xs text-text-secondary">
-                    {new Date(folder.created_at || Date.now()).toLocaleDateString('vi-VN')}
-                  </span>
+          {currentFolders.length > 0 ? currentFolders.map(folder => {
+            const isSelected = selectedIds.includes(folder.id);
+            return (
+              <div 
+                key={folder.id}
+                onClick={() => {
+                  if (isMultiSelect) {
+                    setSelectedIds(prev => 
+                      prev.includes(folder.id) ? prev.filter(id => id !== folder.id) : [...prev, folder.id]
+                    );
+                  } else {
+                    onSelect(folder.id);
+                  }
+                }}
+                className={`group border rounded-xl p-4 flex items-start space-x-4 cursor-pointer transition-colors ${
+                  isMultiSelect && isSelected
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                    : 'border-border bg-background hover:bg-black/5'
+                }`}
+              >
+                {isMultiSelect && (
+                  <div className="pt-3 shrink-0 flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {}} // handled by card container onClick
+                      className="w-4.5 h-4.5 rounded text-primary focus:ring-primary border-border cursor-pointer accent-primary"
+                    />
+                  </div>
+                )}
+                <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform shrink-0">
+                  <Folder className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-text-primary text-sm truncate">{folder.name}</h3>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className="text-xs bg-black/5 dark:bg-white/5 text-text-secondary px-2 py-0.5 rounded-md font-medium">
+                      {folder.docCount || folder.documents?.length || 0} tài liệu
+                    </span>
+                    <span className="text-xs text-text-secondary">
+                      {new Date(folder.created_at || Date.now()).toLocaleDateString('vi-VN')}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )) : (
+            );
+          }) : (
             <div className="text-center text-text-secondary text-sm py-10">
               Không tìm thấy thư mục phù hợp.
             </div>
@@ -84,7 +127,7 @@ const FolderSelectModal = ({ isOpen, onClose, folders, onSelect }) => {
         {/* Pagination Controls */}
         <div className="flex items-center justify-between border-t border-border pt-4 shrink-0">
           <span className="text-sm text-text-secondary">
-            Hiển thị {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredFolders.length)} trong tổng {filteredFolders.length}
+            Hiển thị {filteredFolders.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredFolders.length)} trong tổng {filteredFolders.length}
           </span>
           <div className="flex items-center space-x-2">
             <button 
@@ -107,9 +150,22 @@ const FolderSelectModal = ({ isOpen, onClose, folders, onSelect }) => {
           </div>
         </div>
 
+        {isMultiSelect && (
+          <div className="flex justify-end mt-4 pt-3 border-t border-border shrink-0">
+            <button
+              onClick={() => onSelect(selectedIds)}
+              disabled={selectedIds.length === 0}
+              className="bg-primary hover:bg-primary-dark text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+            >
+              {confirmText} ({selectedIds.length} thư mục)
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
 };
 
 export default FolderSelectModal;
+

@@ -20,6 +20,41 @@ const Folders = () => {
   const [renameInput, setRenameInput] = useState('');
   const [allDocs, setAllDocs] = useState([]);
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState([]);
+
+  // Reset selected docs when folder changes
+  useEffect(() => {
+    setSelectedDocIds([]);
+  }, [selectedFolder?.id]);
+
+  const handleToggleDocSelect = (docId) => {
+    setSelectedDocIds(prev =>
+      prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+    );
+  };
+
+  const handleSelectAllDocs = () => {
+    if (selectedDocIds.length === selectedFolder?.documents?.length) {
+      setSelectedDocIds([]);
+    } else {
+      setSelectedDocIds(selectedFolder?.documents?.map(d => d.id) || []);
+    }
+  };
+
+  const handleBulkRemoveDocs = async () => {
+    if (selectedDocIds.length === 0) return;
+    if (!window.confirm(`Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?`)) return;
+    try {
+      await Promise.all(selectedDocIds.map(docId => API.put(`/documents/${docId}`, { folder_id: null })));
+      toast.success(`Đã loại bỏ thành công ${selectedDocIds.length} tài liệu!`);
+      setSelectedDocIds([]);
+      // Refresh folder detail view
+      const updatedFolderRes = await API.get(`/documents/folders/${selectedFolder.id}`);
+      setSelectedFolder(updatedFolderRes.data);
+    } catch (err) {
+      toast.error('Lỗi khi loại bỏ tài liệu khỏi thư mục');
+    }
+  };
 
   // Folder Chat states
   const [chatMessages, setChatMessages] = useState([
@@ -153,6 +188,16 @@ const Folders = () => {
     }
   };
 
+  const handleUploadSuccess = async () => {
+    if (!selectedFolder) return;
+    try {
+      const updatedFolderRes = await API.get(`/documents/folders/${selectedFolder.id}`);
+      setSelectedFolder(updatedFolderRes.data);
+    } catch (err) {
+      toast.error('Lỗi khi làm mới danh sách tài liệu');
+    }
+  };
+
   const handleRemoveDocFromFolder = async (e, docId) => {
     e.stopPropagation();
     if (!window.confirm('Bạn có chắc muốn loại bỏ tài liệu này khỏi thư mục?')) return;
@@ -166,6 +211,8 @@ const Folders = () => {
       toast.error('Lỗi khi loại bỏ tài liệu');
     }
   };
+
+
 
   const handleSendFolderChat = async () => {
     if (!chatInput.trim() || !selectedFolder) return;
@@ -194,14 +241,14 @@ const Folders = () => {
       <div className="max-w-7xl mx-auto pb-12 flex flex-col h-full">
         {/* Back navigation */}
         <div className="flex items-center justify-between mb-6 shrink-0">
-          <button 
+          <button
             onClick={() => { setSelectedFolder(null); fetchFolders(); }}
             className="flex items-center space-x-2 text-text-secondary hover:text-text-primary text-sm font-semibold transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Quay lại danh sách thư mục</span>
           </button>
-          
+
           <button
             onClick={() => handleDeleteFolder(selectedFolder.id)}
             className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
@@ -212,7 +259,7 @@ const Folders = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
-          
+
           {/* LEFT SIDE: Documents List in Folder */}
           <div className="lg:col-span-1 bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
             <div className="flex items-center justify-between mb-4 border-b border-border pb-4 shrink-0">
@@ -236,7 +283,7 @@ const Folders = () => {
                       <h2 className="font-extrabold text-lg text-text-primary truncate max-w-[150px]">{selectedFolder.name}</h2>
                       <p className="text-xs text-text-secondary">{selectedFolder.documents?.length || 0} tài liệu</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => { setIsEditingName(true); setRenameInput(selectedFolder.name); }}
                       className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer shrink-0"
                       title="Đổi tên thư mục"
@@ -248,32 +295,66 @@ const Folders = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between mb-4 shrink-0">
-              <span className="text-xs font-semibold text-text-secondary">Danh sách tài liệu</span>
-              <button
-                onClick={handleOpenAddDocModal}
-                className="bg-primary hover:bg-primary-dark text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition cursor-pointer shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Thêm tài liệu</span>
-              </button>
+            <div className="flex items-center justify-between mb-4 shrink-0 gap-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={selectedFolder.documents?.length > 0 && selectedDocIds.length === selectedFolder.documents.length}
+                  onChange={handleSelectAllDocs}
+                  className="w-4 h-4 rounded text-primary focus:ring-primary border-border cursor-pointer accent-primary"
+                />
+                <span className="text-xs font-semibold text-text-secondary">
+                  {selectedDocIds.length > 0 ? `Đã chọn ${selectedDocIds.length}` : 'Danh sách tài liệu'}
+                </span>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                {selectedDocIds.length > 0 && (
+                  <button
+                    onClick={handleBulkRemoveDocs}
+                    className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition cursor-pointer shadow-sm"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa đã chọn</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleOpenAddDocModal}
+                  className="bg-primary hover:bg-primary-dark text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm tài liệu</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
               {selectedFolder.documents?.map(doc => (
-                <div 
+                <div
                   key={doc.id}
-                  onClick={() => navigate(`/documents/${doc.id}`)}
-                  className="flex items-center justify-between p-3 bg-background hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl cursor-pointer transition-all group"
+                  className="flex items-center justify-between p-3 bg-background hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl transition-all group"
                 >
-                  <div className="flex items-start space-x-3 overflow-hidden mr-2">
-                    <FileText className="w-5 h-5 text-text-secondary shrink-0 mt-0.5" />
-                    <div className="overflow-hidden">
-                      <h4 className="font-bold text-xs text-text-primary truncate">{doc.title}</h4>
-                      <span className="text-[10px] text-text-secondary font-medium">Tag: {doc.subject}</span>
+                  <div className="flex items-center space-x-3 overflow-hidden mr-2 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedDocIds.includes(doc.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleToggleDocSelect(doc.id);
+                      }}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary border-border cursor-pointer accent-primary"
+                    />
+                    <div
+                      onClick={() => navigate(`/documents/${doc.id}`)}
+                      className="flex items-start space-x-3 overflow-hidden cursor-pointer flex-1"
+                    >
+                      <FileText className="w-5 h-5 text-text-secondary shrink-0 mt-0.5" />
+                      <div className="overflow-hidden">
+                        <h4 className="font-bold text-xs text-text-primary truncate hover:text-primary hover:underline transition-colors">{doc.title}</h4>
+                        <span className="text-[10px] text-text-secondary font-medium">Tag: {doc.subject}</span>
+                      </div>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={(e) => handleRemoveDocFromFolder(e, doc.id)}
                     className="text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 cursor-pointer duration-200 shrink-0"
                     title="Loại khỏi thư mục"
@@ -310,11 +391,10 @@ const Folders = () => {
                   {msg.role === 'ai' && (
                     <span className="text-[9px] font-bold text-primary mb-1 uppercase tracking-wider pl-1">FOLDER BOT</span>
                   )}
-                  <div className={`p-3 text-xs leading-relaxed max-w-[85%] rounded-xl shadow-sm whitespace-pre-wrap ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-white rounded-tr-sm'
-                      : 'bg-black/5 dark:bg-white/5 border border-border text-text-primary rounded-tl-sm'
-                  }`}>
+                  <div className={`p-3 text-xs leading-relaxed max-w-[85%] rounded-xl shadow-sm whitespace-pre-wrap ${msg.role === 'user'
+                    ? 'bg-primary text-white rounded-tr-sm'
+                    : 'bg-black/5 dark:bg-white/5 border border-border text-text-primary rounded-tl-sm'
+                    }`}>
                     {msg.text}
                   </div>
                 </div>
@@ -348,7 +428,7 @@ const Folders = () => {
                 </button>
               </div>
             </div>
-            
+
           </div>
 
         </div>
@@ -391,7 +471,7 @@ const Folders = () => {
       {/* Folder Grids */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {folders.map(f => (
-          <div 
+          <div
             key={f.id}
             onClick={() => {
               if (editingFolderId === f.id) return;
@@ -403,13 +483,13 @@ const Folders = () => {
               <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform duration-200">
                 <Folder className="w-6 h-6" />
               </div>
-              
+
               <div className="flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 <button
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    setEditingFolderId(f.id); 
-                    setEditFolderName(f.name); 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingFolderId(f.id);
+                    setEditFolderName(f.name);
                   }}
                   className="text-text-secondary hover:text-primary p-1 cursor-pointer"
                   title="Đổi tên thư mục"
@@ -428,8 +508,8 @@ const Folders = () => {
 
             <div>
               {editingFolderId === f.id ? (
-                <form 
-                  onSubmit={(e) => handleRenameFolderInList(e, f.id)} 
+                <form
+                  onSubmit={(e) => handleRenameFolderInList(e, f.id)}
                   onClick={(e) => e.stopPropagation()}
                   className="flex items-center space-x-2 w-full mt-2"
                 >
@@ -450,7 +530,7 @@ const Folders = () => {
                 </>
               )}
             </div>
-            
+
             {/* Subtle background glow on hover */}
             <div className="absolute right-0 bottom-0 w-24 h-24 bg-primary/5 rounded-full translate-x-8 translate-y-8 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
@@ -466,12 +546,14 @@ const Folders = () => {
       )}
 
       {/* Document Selection Overlay Modal */}
-      <DocumentSelectModal 
+      <DocumentSelectModal
         isOpen={isDocModalOpen}
         onClose={() => setIsDocModalOpen(false)}
         documents={allDocs}
         onSelect={handleAddDocToFolder}
         isMultiSelect={true}
+        folderId={selectedFolder?.id}
+        onUploadSuccess={handleUploadSuccess}
       />
     </div>
   );

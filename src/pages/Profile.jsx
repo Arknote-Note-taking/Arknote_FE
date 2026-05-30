@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { User, Mail, Shield, Calendar, Edit3, Save, X, Loader2, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Edit3, Save, X, Loader2, Eye, EyeOff, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
@@ -245,7 +245,7 @@ const Profile = () => {
               </div>
 
               {/* Account Stats / Metadata Grid */}
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
                   <div className="p-2 bg-text-secondary/5 rounded-lg text-text-secondary">
                     <Shield className="w-5 h-5" />
@@ -253,6 +253,34 @@ const Profile = () => {
                   <div>
                     <p className="text-[10px] uppercase font-bold text-text-secondary tracking-tighter">Phân quyền</p>
                     <p className="text-sm font-bold text-text-primary capitalize">{profile.role}</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
+                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                    <Zap className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-text-secondary tracking-tighter mb-1">Gói tài khoản</p>
+                    <div className="flex items-center space-x-2">
+                      {profile?.is_pro ? (
+                        <span className="text-[10px] bg-amber-500 text-white font-black px-2.5 py-0.5 rounded-md shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
+                          PRO
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-slate-500 text-white font-black px-2.5 py-0.5 rounded-md shadow-md shadow-slate-500/25 uppercase tracking-wider">
+                          FREE
+                        </span>
+                      )}
+                      {!profile?.is_pro && (
+                        <button
+                          type="button"
+                          onClick={() => navigate('/#pricing')}
+                          className="text-[10px] text-primary hover:text-primary-dark hover:underline font-extrabold cursor-pointer"
+                        >
+                          (Nâng cấp)
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
