@@ -265,7 +265,13 @@ const DocumentList = () => {
     return titleMatch || summaryMatch || tagMatch || subjectMatch;
   });
 
-  const startIndex = (currentPage - 1) * itemsPerPage;
+  const filteredFolders = folders.filter(f => {
+  if (!searchQuery.trim()) return true;
+  const query = searchQuery.toLowerCase();
+  return f.name?.toLowerCase().includes(query);
+});
+
+const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedDocs = filteredDocs.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
 
