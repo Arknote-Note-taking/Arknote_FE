@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
-import { X, Folder, FileText, Loader2, Trash2, ArrowRight, FolderMinus } from 'lucide-react';
+import { X, Folder, FileText, Loader2, Trash2, ArrowRight, FolderMinus, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
+import DocumentSelectModal from './DocumentSelectModal';
 
 const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   const navigate = useNavigate();
   const [folder, setFolder] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // States for adding documents to folder
+  const [allDocs, setAllDocs] = useState([]);
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
 
   // Custom Confirmation Modal State
   const [confirmConfig, setConfirmConfig] = useState({
@@ -99,6 +104,30 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
     navigate(`/documents/${docId}`);
   };
 
+  const handleOpenAddDocModal = async () => {
+    try {
+      const res = await API.get('/documents');
+      const activeDocIds = folder?.documents?.map(d => d.id) || [];
+      const available = res.data.filter(d => !activeDocIds.includes(d.id));
+      setAllDocs(available);
+      setIsDocModalOpen(true);
+    } catch (err) {
+      toast.error('Không thể tải danh sách tài liệu.');
+    }
+  };
+
+  const handleAddDocToFolder = async (selectedIds) => {
+    try {
+      await API.post(`/documents/folders/${folderId}/add-documents`, { documentIds: selectedIds });
+      toast.success(`Đã thêm ${selectedIds.length} tài liệu vào thư mục!`);
+      setIsDocModalOpen(false);
+      fetchFolderDetails();
+      if (onFolderDeleted) onFolderDeleted();
+    } catch (err) {
+      toast.error('Lỗi khi thêm tài liệu vào thư mục');
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
       <div className="bg-surface border border-border rounded-3xl p-6 w-full max-w-2xl relative shadow-2xl flex flex-col max-h-[70vh]">
@@ -131,13 +160,22 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                 </div>
               </div>
 
-              <button
-                onClick={handleDeleteFolder}
-                className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Xóa thư mục</span>
-              </button>
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={handleOpenAddDocModal}
+                  className="flex items-center space-x-1 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm tài liệu</span>
+                </button>
+                <button
+                  onClick={handleDeleteFolder}
+                  className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xóa thư mục</span>
+                </button>
+              </div>
             </div>
 
             {/* List of documents in folder */}
@@ -200,6 +238,15 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
         title={confirmConfig.title}
         message={confirmConfig.message}
         confirmText={confirmConfig.confirmText}
+      />
+
+      {/* Document Selection Overlay Modal */}
+      <DocumentSelectModal 
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        documents={allDocs}
+        onSelect={handleAddDocToFolder}
+        isMultiSelect={true}
       />
     </div>
   );

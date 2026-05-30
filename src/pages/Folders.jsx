@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
-import { Folder, FolderPlus, Trash2, FileText, Send, Loader2, MessageSquare, ArrowLeft, Plus } from 'lucide-react';
+import { Folder, FolderPlus, Trash2, FileText, Send, Loader2, MessageSquare, ArrowLeft, Plus, Edit2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DocumentSelectModal from '../components/DocumentSelectModal';
 
 const Folders = () => {
   const navigate = useNavigate();
@@ -11,6 +12,14 @@ const Folders = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [creating, setCreating] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState(null);
+
+  // Folder CRUD & Document Add states
+  const [editingFolderId, setEditingFolderId] = useState(null);
+  const [editFolderName, setEditFolderName] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
+  const [allDocs, setAllDocs] = useState([]);
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
 
   // Folder Chat states
   const [chatMessages, setChatMessages] = useState([
@@ -87,6 +96,77 @@ const Folders = () => {
     }
   };
 
+  const handleRenameFolder = async (e) => {
+    e.preventDefault();
+    if (!renameInput.trim() || renameInput.trim() === selectedFolder.name) {
+      setIsEditingName(false);
+      return;
+    }
+    try {
+      const res = await API.put(`/documents/folders/${selectedFolder.id}`, { name: renameInput.trim() });
+      toast.success('Đổi tên thư mục thành công!');
+      setSelectedFolder(prev => ({ ...prev, name: res.data.name }));
+      setIsEditingName(false);
+    } catch (err) {
+      toast.error('Lỗi khi đổi tên thư mục');
+    }
+  };
+
+  const handleRenameFolderInList = async (e, folderId) => {
+    e.preventDefault();
+    if (!editFolderName.trim()) {
+      setEditingFolderId(null);
+      return;
+    }
+    try {
+      const res = await API.put(`/documents/folders/${folderId}`, { name: editFolderName.trim() });
+      toast.success('Đổi tên thư mục thành công!');
+      setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: res.data.name } : f));
+      setEditingFolderId(null);
+    } catch (err) {
+      toast.error('Lỗi khi đổi tên thư mục');
+    }
+  };
+
+  const handleOpenAddDocModal = async () => {
+    try {
+      const res = await API.get('/documents');
+      const activeDocIds = selectedFolder?.documents?.map(d => d.id) || [];
+      const available = res.data.filter(d => !activeDocIds.includes(d.id));
+      setAllDocs(available);
+      setIsDocModalOpen(true);
+    } catch (err) {
+      toast.error('Không thể tải kho tài liệu.');
+    }
+  };
+
+  const handleAddDocToFolder = async (selectedIds) => {
+    try {
+      await API.post(`/documents/folders/${selectedFolder.id}/add-documents`, { documentIds: selectedIds });
+      toast.success(`Đã thêm ${selectedIds.length} tài liệu vào thư mục!`);
+      setIsDocModalOpen(false);
+      // Refresh folder detail view
+      const updatedFolderRes = await API.get(`/documents/folders/${selectedFolder.id}`);
+      setSelectedFolder(updatedFolderRes.data);
+    } catch (err) {
+      toast.error('Lỗi khi thêm tài liệu vào thư mục');
+    }
+  };
+
+  const handleRemoveDocFromFolder = async (e, docId) => {
+    e.stopPropagation();
+    if (!window.confirm('Bạn có chắc muốn loại bỏ tài liệu này khỏi thư mục?')) return;
+    try {
+      await API.put(`/documents/${docId}`, { folder_id: null });
+      toast.success('Đã loại bỏ tài liệu khỏi thư mục!');
+      // Refresh folder detail view
+      const updatedFolderRes = await API.get(`/documents/folders/${selectedFolder.id}`);
+      setSelectedFolder(updatedFolderRes.data);
+    } catch (err) {
+      toast.error('Lỗi khi loại bỏ tài liệu');
+    }
+  };
+
   const handleSendFolderChat = async () => {
     if (!chatInput.trim() || !selectedFolder) return;
     const userQuestion = chatInput.trim();
@@ -135,12 +215,48 @@ const Folders = () => {
           
           {/* LEFT SIDE: Documents List in Folder */}
           <div className="lg:col-span-1 bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
-            <div className="flex items-center space-x-3 mb-4 border-b border-border pb-4 shrink-0">
-              <Folder className="w-6 h-6 text-primary" />
-              <div>
-                <h2 className="font-extrabold text-lg text-text-primary truncate max-w-[200px]">{selectedFolder.name}</h2>
-                <p className="text-xs text-text-secondary">{selectedFolder.documents?.length || 0} tài liệu</p>
+            <div className="flex items-center justify-between mb-4 border-b border-border pb-4 shrink-0">
+              <div className="flex items-center space-x-3 w-full min-w-0">
+                <Folder className="w-6 h-6 text-primary shrink-0" />
+                {isEditingName ? (
+                  <form onSubmit={handleRenameFolder} className="flex-1 flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={renameInput}
+                      onChange={(e) => setRenameInput(e.target.value)}
+                      className="bg-background border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary text-text-primary font-semibold flex-1 min-w-0"
+                      autoFocus
+                    />
+                    <button type="submit" className="text-primary hover:text-primary-dark font-bold text-xs shrink-0">Lưu</button>
+                    <button type="button" onClick={() => setIsEditingName(false)} className="text-text-secondary hover:text-text-primary text-xs shrink-0">Hủy</button>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between flex-1 overflow-hidden">
+                    <div className="min-w-0 pr-2">
+                      <h2 className="font-extrabold text-lg text-text-primary truncate max-w-[150px]">{selectedFolder.name}</h2>
+                      <p className="text-xs text-text-secondary">{selectedFolder.documents?.length || 0} tài liệu</p>
+                    </div>
+                    <button 
+                      onClick={() => { setIsEditingName(true); setRenameInput(selectedFolder.name); }}
+                      className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer shrink-0"
+                      title="Đổi tên thư mục"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-4 shrink-0">
+              <span className="text-xs font-semibold text-text-secondary">Danh sách tài liệu</span>
+              <button
+                onClick={handleOpenAddDocModal}
+                className="bg-primary hover:bg-primary-dark text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition cursor-pointer shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Thêm tài liệu</span>
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
@@ -148,19 +264,28 @@ const Folders = () => {
                 <div 
                   key={doc.id}
                   onClick={() => navigate(`/documents/${doc.id}`)}
-                  className="flex items-start space-x-3 p-3 bg-background hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl cursor-pointer transition-all"
+                  className="flex items-center justify-between p-3 bg-background hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl cursor-pointer transition-all group"
                 >
-                  <FileText className="w-5 h-5 text-text-secondary shrink-0 mt-0.5" />
-                  <div className="overflow-hidden">
-                    <h4 className="font-bold text-xs text-text-primary truncate">{doc.title}</h4>
-                    <span className="text-[10px] text-text-secondary font-medium">Tag: {doc.subject}</span>
+                  <div className="flex items-start space-x-3 overflow-hidden mr-2">
+                    <FileText className="w-5 h-5 text-text-secondary shrink-0 mt-0.5" />
+                    <div className="overflow-hidden">
+                      <h4 className="font-bold text-xs text-text-primary truncate">{doc.title}</h4>
+                      <span className="text-[10px] text-text-secondary font-medium">Tag: {doc.subject}</span>
+                    </div>
                   </div>
+                  <button 
+                    onClick={(e) => handleRemoveDocFromFolder(e, doc.id)}
+                    className="text-text-secondary hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 cursor-pointer duration-200 shrink-0"
+                    title="Loại khỏi thư mục"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               ))}
 
               {(!selectedFolder.documents || selectedFolder.documents.length === 0) && (
                 <div className="text-center py-12 text-text-secondary text-xs italic">
-                  Không có tài liệu nào trong thư mục này. Hãy tải lên tài liệu mới và chọn phân vào thư mục này!
+                  Không có tài liệu nào trong thư mục này. Hãy nhấp "Thêm tài liệu" để gom nhóm tài liệu phân tích!
                 </div>
               )}
             </div>
@@ -268,7 +393,10 @@ const Folders = () => {
         {folders.map(f => (
           <div 
             key={f.id}
-            onClick={() => handleSelectFolder(f)}
+            onClick={() => {
+              if (editingFolderId === f.id) return;
+              handleSelectFolder(f);
+            }}
             className="bg-surface border border-border hover:border-primary/40 rounded-2xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
           >
             <div className="flex justify-between items-start">
@@ -276,18 +404,51 @@ const Folders = () => {
                 <Folder className="w-6 h-6" />
               </div>
               
-              <button
-                onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                className="text-text-secondary hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer duration-200"
-                title="Xóa thư mục"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                <button
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setEditingFolderId(f.id); 
+                    setEditFolderName(f.name); 
+                  }}
+                  className="text-text-secondary hover:text-primary p-1 cursor-pointer"
+                  title="Đổi tên thư mục"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
+                  className="text-text-secondary hover:text-red-500 p-1 cursor-pointer"
+                  title="Xóa thư mục"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div>
-              <h3 className="font-extrabold text-text-primary text-base truncate mb-1">{f.name}</h3>
-              <p className="text-xs text-text-secondary">{f.docCount || 0} tài liệu bên trong</p>
+              {editingFolderId === f.id ? (
+                <form 
+                  onSubmit={(e) => handleRenameFolderInList(e, f.id)} 
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center space-x-2 w-full mt-2"
+                >
+                  <input
+                    type="text"
+                    value={editFolderName}
+                    onChange={(e) => setEditFolderName(e.target.value)}
+                    className="bg-background border border-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-primary text-text-primary font-bold flex-1 min-w-0"
+                    autoFocus
+                  />
+                  <button type="submit" className="text-primary hover:text-primary-dark font-bold text-xs shrink-0">Lưu</button>
+                  <button type="button" onClick={() => setEditingFolderId(null)} className="text-text-secondary hover:text-text-primary text-xs shrink-0"><X className="w-4 h-4" /></button>
+                </form>
+              ) : (
+                <>
+                  <h3 className="font-extrabold text-text-primary text-base truncate mb-1">{f.name}</h3>
+                  <p className="text-xs text-text-secondary">{f.docCount || 0} tài liệu bên trong</p>
+                </>
+              )}
             </div>
             
             {/* Subtle background glow on hover */}
@@ -303,6 +464,15 @@ const Folders = () => {
           <p className="text-xs text-text-secondary/60 mt-1">Hãy nhập tên thư mục ở trên để bắt đầu nhóm các tài liệu lại với nhau!</p>
         </div>
       )}
+
+      {/* Document Selection Overlay Modal */}
+      <DocumentSelectModal 
+        isOpen={isDocModalOpen}
+        onClose={() => setIsDocModalOpen(false)}
+        documents={allDocs}
+        onSelect={handleAddDocToFolder}
+        isMultiSelect={true}
+      />
     </div>
   );
 };
