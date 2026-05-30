@@ -34,11 +34,11 @@ const MainLayout = ({ children }) => {
     { name: 'Knowledge Map', path: '/graph', icon: Network },
   ];
 
-  const navItems = user?.role === 'admin' 
+  const navItems = user?.role === 'admin'
     ? [
-        ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph'),
-        { name: 'Khách hàng', path: '/users', icon: Users }
-      ]
+      ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph'),
+      { name: 'Khách hàng', path: '/users', icon: Users }
+    ]
     : baseNavItems;
 
   return (
@@ -46,19 +46,19 @@ const MainLayout = ({ children }) => {
       {/* Sidebar */}
       <aside className="w-64 bg-surface border-r border-border flex flex-col justify-between shrink-0 h-full transition-colors duration-300">
         <div>
-          <div className="h-16 flex items-center px-6">
+          <NavLink to="/" className="h-16 flex items-center px-6 hover:opacity-85 transition-opacity">
             <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-[#52B788] bg-clip-text text-transparent">Arknote</h1>
-          </div>
+          </NavLink>
           <nav className="mt-4 px-3 space-y-0.5">
             {navItems.map((item) => {
               const active = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
               return (
-                <NavLink 
-                  key={item.name} 
+                <NavLink
+                  key={item.name}
                   to={item.path}
                   className={`flex items-center space-x-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-medium text-sm group
-                    ${active 
-                      ? 'bg-primary/10 dark:bg-primary/15 text-primary font-semibold' 
+                    ${active
+                      ? 'bg-primary/10 dark:bg-primary/15 text-primary font-semibold'
                       : 'text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'}`}
                 >
                   <item.icon className={`w-4.5 h-4.5 transition-colors ${active ? 'text-primary' : 'text-text-secondary group-hover:text-text-primary'}`} />
@@ -69,12 +69,36 @@ const MainLayout = ({ children }) => {
             })}
           </nav>
         </div>
-        <div className="p-4 border-t border-border">
-          <button 
-             onClick={handleLogout}
-             className="w-full py-2 text-sm text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl text-left px-4 cursor-pointer flex items-center space-x-2"
+        <div className="p-4 border-t border-border space-y-4">
+          {/* Plan status card */}
+          <div className="bg-background border border-border p-3.5 rounded-2xl flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Gói tài khoản</span>
+              {user?.is_pro ? (
+                <span className="text-[9px] bg-amber-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
+                  Pro
+                </span>
+              ) : (
+                <span className="text-[9px] bg-slate-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-slate-500/25 uppercase tracking-wider">
+                  Free
+                </span>
+              )}
+            </div>
+            {!user?.is_pro && (
+              <button
+                onClick={() => navigate('/#pricing')}
+                className="text-[10px] text-primary hover:text-primary-dark font-extrabold w-fit hover:underline text-left cursor-pointer transition"
+              >
+                Nâng cấp lên PRO
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full py-2 text-sm text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl text-left px-4 cursor-pointer flex items-center space-x-2"
           >
-             <span>Sign Out</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </aside>
@@ -84,17 +108,16 @@ const MainLayout = ({ children }) => {
         {/* Header */}
         <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-6 shrink-0 transition-colors duration-300">
           <div className="flex items-center text-text-secondary">
-             <div className="text-xs text-text-secondary/50 font-medium hidden sm:block">Arknote AI Platform</div>
+            <div className="text-xs text-text-secondary/50 font-medium hidden sm:block">Arknote AI Platform</div>
           </div>
           <div className="flex items-center space-x-3">
             {/* Dark Mode Toggle */}
-            <button 
+            <button
               onClick={() => setDarkMode(!darkMode)}
-              className={`relative p-1.5 rounded-xl transition-all cursor-pointer flex items-center text-xs font-medium px-2 border ${
-                darkMode 
-                  ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700' 
-                  : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
-              }`}
+              className={`relative p-1.5 rounded-xl transition-all cursor-pointer flex items-center text-xs font-medium px-2 border ${darkMode
+                ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700'
+                : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                }`}
               title="Chuyển chế độ Sáng/Tối"
             >
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -106,10 +129,10 @@ const MainLayout = ({ children }) => {
             <NavLink to="/profile" className="flex items-center space-x-2 border border-border p-1 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 hover:border-primary/30 transition group">
               <div className="w-7 h-7 bg-text-secondary/10 group-hover:bg-primary/10 rounded-full flex items-center justify-center transition-colors overflow-hidden">
                 {user?.avatar_url ? (
-                  <img 
-                    src={user.avatar_url.startsWith('http') ? user.avatar_url : `http://localhost:5000${user.avatar_url}`} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover" 
+                  <img
+                    src={user.avatar_url.startsWith('http') ? user.avatar_url : `http://localhost:5000${user.avatar_url}`}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <UserIcon className="w-4 h-4 text-text-secondary group-hover:text-primary transition-colors" />

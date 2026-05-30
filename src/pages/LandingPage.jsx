@@ -2,10 +2,56 @@ import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { BrainCircuit, UploadCloud, FolderSearch, Network, CheckCircle, ArrowRight, Zap, Activity, Sun, Moon } from 'lucide-react';
+import API from '../services/api';
+import toast from 'react-hot-toast';
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user, login } = useContext(AuthContext);
+  const [upgrading, setUpgrading] = useState(false);
+
+  const handleUpgradeToPro = async () => {
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để thực hiện nâng cấp tài khoản Pro!');
+      navigate('/login');
+      return;
+    }
+
+    if (user.is_pro) {
+      toast.success('Tài khoản của bạn đã là PRO rồi! ✨');
+      navigate('/dashboard');
+      return;
+    }
+
+    setUpgrading(true);
+    try {
+      await API.post('/users/upgrade-pro');
+      login({ ...user, is_pro: true });
+      toast.success('Chúc mừng! Bạn đã nâng cấp lên tài khoản PRO thành công! 🎉');
+      navigate('/dashboard');
+    } catch (err) {
+      toast.error('Gặp sự cố khi kết nối hệ thống nâng cấp. Vui lòng thử lại sau.');
+    } finally {
+      setUpgrading(false);
+    }
+  };
+
+  // Handle smooth scroll to hash pricing
+  useEffect(() => {
+    const handleHashScroll = () => {
+      if (window.location.hash === '#pricing') {
+        const el = document.getElementById('pricing');
+        if (el) {
+          setTimeout(() => {
+            el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+        }
+      }
+    };
+    handleHashScroll();
+    window.addEventListener('hashchange', handleHashScroll);
+    return () => window.removeEventListener('hashchange', handleHashScroll);
+  }, []);
 
   // Sync dark mode toggle with localStorage / document class
   const [darkMode, setDarkMode] = useState(() => {
@@ -53,7 +99,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-background text-text-primary transition-colors duration-300 flex flex-col font-sans">
-      
+
       {/* ── 1. Header Navbar ── */}
       <header className="w-full h-18 bg-surface/90 backdrop-blur-md border-b border-border sticky top-0 z-[80] transition-colors duration-300">
         <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between py-4">
@@ -79,33 +125,43 @@ const LandingPage = () => {
             {/* Dark Mode Toggle */}
             <button
               onClick={toggleDarkMode}
-              className={`flex items-center px-2 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                darkMode
-                  ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700'
-                  : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
-              }`}
+              className={`flex items-center px-2 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${darkMode
+                ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700'
+                : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                }`}
               title="Chuyển chế độ Sáng/Tối"
             >
               {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             </button>
 
             {user ? (
-              <button 
-                onClick={() => navigate('/dashboard')}
-                className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all flex items-center space-x-2"
-              >
-                <span>Vào Workspace</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-3">
+                {user.is_pro ? (
+                  <span className="text-[10px] bg-amber-500 text-white font-black px-3 py-1.5 rounded-xl shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse hidden sm:inline-block">
+                    PRO
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-slate-500 text-white font-black px-3 py-1.5 rounded-xl shadow-md shadow-slate-500/25 uppercase tracking-wider hidden sm:inline-block">
+                    FREE
+                  </span>
+                )}
+                <button
+                  onClick={() => navigate('/dashboard')}
+                  className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all flex items-center space-x-2"
+                >
+                  <span>Vào Workspace</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             ) : (
               <>
-                <button 
+                <button
                   onClick={() => navigate('/login')}
                   className="text-text-primary hover:text-primary text-sm font-bold cursor-pointer transition-colors hidden sm:block"
                 >
                   Đăng nhập
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/register')}
                   className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md cursor-pointer transition-all"
                 >
@@ -139,7 +195,7 @@ const LandingPage = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             {user ? (
-              <button 
+              <button
                 onClick={() => navigate('/dashboard')}
                 className="w-full sm:w-auto bg-primary hover:bg-primary-dark text-white font-bold px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer text-base flex items-center justify-center space-x-2"
               >
@@ -148,13 +204,13 @@ const LandingPage = () => {
               </button>
             ) : (
               <>
-                <button 
+                <button
                   onClick={() => navigate('/register')}
                   className="w-full sm:w-auto bg-primary hover:bg-primary-dark text-white font-bold px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-all cursor-pointer text-base"
                 >
                   Trải nghiệm miễn phí ngay
                 </button>
-                <button 
+                <button
                   onClick={() => navigate('/login')}
                   className="w-full sm:w-auto bg-surface border border-border hover:bg-black/5 dark:hover:bg-white/5 text-text-primary font-bold px-8 py-4 rounded-xl text-base transition-all cursor-pointer"
                 >
@@ -178,7 +234,7 @@ const LandingPage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {steps.map((st, idx) => (
-              <div 
+              <div
                 key={idx}
                 className="bg-background border border-border rounded-2xl p-6 hover:shadow-md dark:hover:shadow-black/30 transition-all group flex flex-col justify-between"
               >
@@ -212,9 +268,14 @@ const LandingPage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            
+
             {/* Standard Package */}
             <div className="bg-surface border border-border rounded-3xl p-8 flex flex-col justify-between shadow-sm relative overflow-hidden">
+              {user && !user.is_pro && (
+                <div className="absolute right-0 top-0 bg-[#52B788] text-white text-[9px] font-extrabold uppercase py-1.5 px-4 rounded-bl-xl tracking-wider">
+                  GÓI HIỆN TẠI
+                </div>
+              )}
               <div>
                 <h3 className="text-lg font-bold text-text-primary mb-1">Gói Căn Bản (Free)</h3>
                 <p className="text-xs text-text-secondary mb-6">Trải nghiệm hệ thống OCR & Sàng lọc tags cơ bản</p>
@@ -222,7 +283,7 @@ const LandingPage = () => {
                   <span className="text-3xl font-black text-text-primary">0đ</span>
                   <span className="text-xs text-text-secondary ml-2">/ tháng vĩnh viễn</span>
                 </div>
-                
+
                 <hr className="border-border mb-6" />
 
                 <ul className="space-y-4 text-xs text-text-secondary mb-8">
@@ -245,30 +306,37 @@ const LandingPage = () => {
                 </ul>
               </div>
 
-              <button 
+              <button
                 onClick={() => user ? navigate('/dashboard') : navigate('/register')}
                 className="w-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-text-primary font-bold py-3 rounded-xl text-xs transition-all cursor-pointer text-center"
               >
-                {user ? 'Tiếp tục Workspace' : 'Sử dụng miễn phí'}
+                {user && !user.is_pro ? 'Gói hiện tại (Đi tới Workspace)' : user ? 'Tiếp tục Workspace' : 'Sử dụng miễn phí'}
               </button>
             </div>
 
             {/* Pro Upgrade Package */}
             <div className="bg-surface border-2 border-primary rounded-3xl p-8 flex flex-col justify-between shadow-md relative overflow-hidden">
               {/* Premium ribbon */}
-              <div className="absolute right-0 top-0 bg-primary text-white text-[10px] font-bold uppercase py-1 px-4 rounded-bl-xl tracking-wider flex items-center space-x-1">
-                <Activity className="w-3 h-3 animate-pulse" />
-                <span>Khuyên dùng</span>
-              </div>
+              {user?.is_pro ? (
+                <div className="absolute right-0 top-0 bg-emerald-500 text-white text-[9px] font-extrabold uppercase py-1.5 px-4 rounded-bl-xl tracking-wider flex items-center space-x-1">
+                  <Zap className="w-3 h-3 animate-bounce" />
+                  <span>GÓI HIỆN TẠI</span>
+                </div>
+              ) : (
+                <div className="absolute right-0 top-0 bg-primary text-white text-[10px] font-bold uppercase py-1 px-4 rounded-bl-xl tracking-wider flex items-center space-x-1">
+                  <Activity className="w-3 h-3 animate-pulse" />
+                  <span>Khuyên dùng</span>
+                </div>
+              )}
 
               <div>
                 <h3 className="text-lg font-bold text-text-primary mb-1">Gói Chuyên Nghiệp (Pro)</h3>
                 <p className="text-xs text-text-secondary mb-6">Mở khóa toàn bộ khả năng AI, không giới hạn request</p>
                 <div className="flex items-baseline mb-6">
-                  <span className="text-3xl font-black text-primary">199.000đ</span>
+                  <span className="text-3xl font-black text-primary">79.000đ</span>
                   <span className="text-xs text-text-secondary ml-2">/ tháng</span>
                 </div>
-                
+
                 <hr className="border-border mb-6" />
 
                 <ul className="space-y-4 text-xs text-text-primary mb-8">
@@ -295,10 +363,12 @@ const LandingPage = () => {
                 </ul>
               </div>
 
-              <button 
-                className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 rounded-xl text-xs transition-all cursor-pointer shadow-md text-center"
+              <button
+                onClick={user?.is_pro ? () => navigate('/dashboard') : handleUpgradeToPro}
+                disabled={upgrading}
+                className="w-full bg-primary hover:bg-primary-dark disabled:bg-primary/50 text-white font-bold py-3 rounded-xl text-xs transition-all cursor-pointer shadow-md text-center flex items-center justify-center space-x-2"
               >
-                Nâng cấp tài khoản Pro ngay
+                {upgrading ? 'Đang kích hoạt...' : user?.is_pro ? 'Gói đang sử dụng (Vào Workspace)' : 'Nâng cấp tài khoản Pro ngay'}
               </button>
             </div>
 
