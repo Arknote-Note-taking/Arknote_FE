@@ -125,26 +125,29 @@ const DocumentSelectModal = ({
     setUploading(true);
     setUploadError(null);
     try {
-      const uploadedDocs = [];
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        // Determine subject
-        if (subject !== 'Auto') {
-          formData.append('subject', subject === 'Khác' ? customSubject.trim() || 'Khác' : subject);
-        }
-        
-        // Add folder if any
-        if (folderId) {
-          formData.append('folder_id', folderId);
-        }
-        
-        const res = await API.post('/documents', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        uploadedDocs.push(res.data);
-      }
+      const uploadedDocs = await Promise.all(
+        files.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          // Determine subject
+          if (subject !== 'Auto') {
+            formData.append('subject', subject === 'Khác' ? customSubject.trim() || 'Khác' : subject);
+          } else {
+            formData.append('subject', 'Auto');
+          }
+          
+          // Add folder if any
+          if (folderId) {
+            formData.append('folder_id', folderId);
+          }
+          
+          const res = await API.post('/documents', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          return res.data;
+        })
+      );
       
       toast.success(`Đã tải lên & nạp thành công ${files.length} tài liệu vào thư mục!`);
       setFiles([]);

@@ -115,11 +115,11 @@ const Profile = () => {
 
     setPassLoading(true);
     try {
-      await API.post('/auth/reset-password', { 
-        email: profile.email, 
-        code: otp, 
-        newPassword, 
-        confirmPassword 
+      await API.post('/auth/reset-password', {
+        email: profile.email,
+        code: otp,
+        newPassword,
+        confirmPassword
       });
       toast.success('Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
       setIsChangingPassword(false);
@@ -140,6 +140,7 @@ const Profile = () => {
       setPassLoading(false);
     }
   };
+
 
   if (loading) return (
     <div className="flex justify-center items-center h-full">
@@ -277,7 +278,6 @@ const Profile = () => {
                           onClick={() => navigate('/#pricing')}
                           className="text-[10px] text-primary hover:text-primary-dark hover:underline font-extrabold cursor-pointer"
                         >
-                          (Nâng cấp)
                         </button>
                       )}
                     </div>
@@ -453,6 +453,8 @@ const Profile = () => {
               </form>
             )}
           </div>
+
+
 
           <div className="bg-[#FEF2F2] border border-[#FEE2E2] rounded-3xl p-6 flex items-center justify-between group">
             <div className="flex items-center space-x-4">

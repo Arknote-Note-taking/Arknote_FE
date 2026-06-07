@@ -13,11 +13,11 @@ const getTagColor = (subject) => {
 };
 const getSubjectColorStr = (subject) => {
   const s = subject?.toLowerCase?.() || '';
-  if (s.includes('nhân sự')) return '#3B82F6'; 
-  if (s.includes('hành chính')) return '#A855F7'; 
-  if (s.includes('pháp luật')) return '#F59E0B'; 
-  if (s.includes('học tập')) return '#22C55E'; 
-  return '#9CA3AF'; 
+  if (s.includes('nhân sự')) return '#3B82F6';
+  if (s.includes('hành chính')) return '#A855F7';
+  if (s.includes('pháp luật')) return '#F59E0B';
+  if (s.includes('học tập')) return '#22C55E';
+  return '#9CA3AF';
 };
 
 // Polyfill roundRect for canvas if needed
@@ -94,7 +94,7 @@ const GraphView = () => {
     setFetchingDetails(true);
     try {
       const res = await API.get(`/documents/${node.id}`);
-      
+
       const relatedEdgeTargets = graphData.links.filter(l => (l.source.id || l.source) === node.id).map(l => l.target.id || l.target);
       const relatedEdgeSources = graphData.links.filter(l => (l.target.id || l.target) === node.id).map(l => l.source.id || l.source);
       const allRelatedIds = [...new Set([...relatedEdgeTargets, ...relatedEdgeSources])];
@@ -111,18 +111,18 @@ const GraphView = () => {
   const renderNode = (node, ctx, globalScale) => {
     const isSelected = node.id === selectedNodeId;
     const label = node.title;
-    
+
     // Abstract base scale relative drawing
     const fontSize = 4;
     ctx.font = `600 ${fontSize}px Inter, sans-serif`;
-    
+
     const textWidth = ctx.measureText(label).width;
     const w = Math.max(textWidth + 8, 24);
-    const h = 14; 
-    
-    const x = node.x - w/2;
-    const y = node.y - h/2;
-    
+    const h = 14;
+
+    const x = node.x - w / 2;
+    const y = node.y - h / 2;
+
     // Background shadow simulation
     if (isSelected) {
       ctx.shadowColor = 'rgba(50, 205, 50, 0.2)';
@@ -137,18 +137,18 @@ const GraphView = () => {
     ctx.roundRect(x, y, w, h, 2);
     ctx.fill();
     ctx.shadowBlur = 0; // reset
-    
+
     // Border
     ctx.strokeStyle = isSelected ? '#10B981' : '#E5E7EB';
     ctx.lineWidth = isSelected ? 1 : 0.2;
     ctx.stroke();
-    
+
     // Dot
     ctx.fillStyle = getSubjectColorStr(node.subject);
     ctx.beginPath();
-    ctx.arc(x + w/2, y + 4, 1.2, 0, 2 * Math.PI, false);
+    ctx.arc(x + w / 2, y + 4, 1.2, 0, 2 * Math.PI, false);
     ctx.fill();
-    
+
     // Text
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -159,13 +159,13 @@ const GraphView = () => {
   return (
     <div className="max-w-[1600px] w-full mx-auto h-full flex flex-col">
       <h1 className="text-2xl font-bold text-text-primary mb-1">Knowledge Map</h1>
-      <p className="text-text-secondary text-sm mb-6">Bản đồ liên kết giữa các tài liệu — giống skill tree</p>
+      <p className="text-text-secondary text-sm mb-6">Bản đồ liên kết giữa các tài liệu</p>
 
       <div className="flex h-[calc(100vh-180px)] gap-6">
-        
+
         {/* Left Column: Graph View */}
-        <div 
-          className="flex-1 bg-surface border border-border rounded-xl relative overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.02)]" 
+        <div
+          className="flex-1 bg-surface border border-border rounded-xl relative overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.02)]"
           ref={containerRef}
         >
           {loadingGraph ? (
@@ -182,21 +182,21 @@ const GraphView = () => {
               nodePointerAreaPaint={(node, color, ctx) => {
                 // Ensure pointer hits the box area properly
                 ctx.fillStyle = color;
-                const w = 40; const h = 14; 
-                ctx.fillRect(node.x - w/2, node.y - h/2, w, h);
+                const w = 40; const h = 14;
+                ctx.fillRect(node.x - w / 2, node.y - h / 2, w, h);
               }}
               onNodeClick={handleNodeClick}
               linkColor={(link) => {
-                // highlight link if connected to selected node
-                if (!selectedNodeId) return '#F3F4F6';
-                if ((link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId) {
-                  return '#32813D';
+                const isDark = document.documentElement.classList.contains('dark');
+                const isHighlighted = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;
+                if (isHighlighted) {
+                  return isDark ? '#34D399' : '#10B981';
                 }
-                return '#F3F4F6';
+                return isDark ? '#374151' : '#E5E7EB';
               }}
               linkWidth={(link) => {
-                if ((link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId) return 1.5;
-                return 0.5;
+                const isHighlighted = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;
+                return isHighlighted ? 2.0 : 0.8;
               }}
               backgroundColor="transparent"
               warmupTicks={50}
@@ -204,17 +204,17 @@ const GraphView = () => {
             />
           ) : (
             <div className="flex items-center justify-center h-full text-text-secondary">
-               <div className="flex flex-col items-center">
-                 <Network className="w-10 h-10 mb-2 opacity-30" />
-                 <p className="text-sm">Chưa có kết nối nào trong dữ liệu.</p>
-               </div>
+              <div className="flex flex-col items-center">
+                <Network className="w-10 h-10 mb-2 opacity-30" />
+                <p className="text-sm">Chưa có kết nối nào trong dữ liệu.</p>
+              </div>
             </div>
           )}
         </div>
 
         {/* Right Column: Details & Legend */}
         <div className="w-80 flex flex-col space-y-4 shrink-0 overflow-y-auto custom-scrollbar">
-          
+
           {selectedNodeId ? (
             <div className="bg-surface border border-border rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-opacity">
               {fetchingDetails ? (
@@ -230,22 +230,22 @@ const GraphView = () => {
                   <p className="text-xs text-text-secondary mb-5 leading-relaxed bg-background/50 p-2 rounded border border-border/50">
                     {nodeDetails.summary || "Đang xử lý tóm tắt..."}
                   </p>
-                  
+
                   <div>
                     <p className="text-[10px] font-semibold text-text-secondary mb-2 whitespace-nowrap">Liên kết đến:</p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
-                       {nodeDetails.linkedDocs?.map(ld => (
-                         <div 
-                           key={ld.id} 
-                           className="bg-background border border-border px-3 py-2 rounded text-[11px] text-text-primary hover:border-primary/50 cursor-pointer transition-colors line-clamp-2"
-                           onClick={() => handleNodeClick(ld)}
-                         >
-                            {ld.title}
-                         </div>
-                       ))}
-                       {(!nodeDetails.linkedDocs || nodeDetails.linkedDocs.length === 0) && (
-                         <p className="text-[11px] text-text-secondary italic">Không có liên kết đồng cấp.</p>
-                       )}
+                      {nodeDetails.linkedDocs?.map(ld => (
+                        <div
+                          key={ld.id}
+                          className="bg-background border border-border px-3 py-2 rounded text-[11px] text-text-primary hover:border-primary/50 cursor-pointer transition-colors line-clamp-2"
+                          onClick={() => handleNodeClick(ld)}
+                        >
+                          {ld.title}
+                        </div>
+                      ))}
+                      {(!nodeDetails.linkedDocs || nodeDetails.linkedDocs.length === 0) && (
+                        <p className="text-[11px] text-text-secondary italic">Không có liên kết đồng cấp.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -256,20 +256,20 @@ const GraphView = () => {
               <p className="text-[11px] font-medium text-text-secondary text-center">Nhấn vào một node để xem chi tiết liên kết</p>
             </div>
           )}
-          
+
           <div className="bg-surface border border-border rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
             <h3 className="text-[11px] font-bold text-text-primary mb-3">Chú thích</h3>
             <div className="space-y-2.5">
-               {['Nhân sự', 'Hành chính', 'Pháp luật', 'Học tập'].map(subj => (
-                 <div key={subj} className="flex items-center space-x-3">
-                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getSubjectColorStr(subj) }}></div>
-                   <span className="text-xs text-text-primary font-medium">{subj}</span>
-                 </div>
-               ))}
-               <div className="flex items-center space-x-3 pt-1">
-                   <div className="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
-                   <span className="text-xs text-text-primary font-medium">Khác</span>
-                 </div>
+              {['Nhân sự', 'Hành chính', 'Pháp luật', 'Học tập'].map(subj => (
+                <div key={subj} className="flex items-center space-x-3">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getSubjectColorStr(subj) }}></div>
+                  <span className="text-xs text-text-primary font-medium">{subj}</span>
+                </div>
+              ))}
+              <div className="flex items-center space-x-3 pt-1">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
+                <span className="text-xs text-text-primary font-medium">Khác</span>
+              </div>
             </div>
           </div>
 

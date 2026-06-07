@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import API from '../services/api';
 import { SocketContext } from '../context/SocketContext';
-import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw } from 'lucide-react';
+import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -266,12 +266,12 @@ const DocumentList = () => {
   });
 
   const filteredFolders = folders.filter(f => {
-  if (!searchQuery.trim()) return true;
-  const query = searchQuery.toLowerCase();
-  return f.name?.toLowerCase().includes(query);
-});
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return f.name?.toLowerCase().includes(query);
+  });
 
-const startIndex = (currentPage - 1) * itemsPerPage;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedDocs = filteredDocs.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
 
@@ -286,7 +286,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
 
   return (
     <div className="max-w-[1600px] w-full mx-auto relative">
-      
+
       {/* 1. Header Navigation and Title */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -299,11 +299,10 @@ const startIndex = (currentPage - 1) * itemsPerPage;
       <div className="flex space-x-1 border-b border-border mb-6">
         <button
           onClick={() => setViewMode('documents')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
-            viewMode === 'documents'
+          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'documents'
               ? 'border-b-2 border-primary text-primary font-bold'
               : 'text-text-secondary hover:text-text-primary'
-          }`}
+            }`}
         >
           <div className="flex items-center space-x-2">
             <FileText className="w-4 h-4" />
@@ -313,11 +312,10 @@ const startIndex = (currentPage - 1) * itemsPerPage;
         {user?.role !== 'admin' && (
           <button
             onClick={() => setViewMode('folders')}
-            className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
-              viewMode === 'folders'
+            className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'folders'
                 ? 'border-b-2 border-primary text-primary font-bold'
                 : 'text-text-secondary hover:text-text-primary'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <Folder className="w-4 h-4" />
@@ -328,11 +326,10 @@ const startIndex = (currentPage - 1) * itemsPerPage;
         {user?.role === 'admin' && (
           <button
             onClick={() => setViewMode('deleted')}
-            className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
-              viewMode === 'deleted'
+            className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'deleted'
                 ? 'border-b-2 border-primary text-primary font-bold'
                 : 'text-text-secondary hover:text-text-primary'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <Trash2 className="w-4 h-4" />
@@ -342,12 +339,35 @@ const startIndex = (currentPage - 1) * itemsPerPage;
         )}
       </div>
 
+      {/* 2.5. Upload Limit Indicator for Non-Pro Users */}
+      {user?.role !== 'admin' && !user?.is_pro && (
+        <div className="bg-amber-500/15 border border-amber-500/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative overflow-hidden">
+          <div className="flex items-center space-x-3">
+            <span className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
+              <Zap className="w-5 h-5 animate-pulse" />
+            </span>
+            <div>
+              <h4 className="font-bold text-text-primary text-sm">Giới hạn tải lên tài liệu</h4>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / 5</strong> tài liệu miễn phí.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/#pricing')}
+            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow-md shadow-amber-500/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+          >
+            Nâng cấp PRO để upload không giới hạn
+          </button>
+        </div>
+      )}
+
       {/* 3. Controls & Action Buttons toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={viewMode === 'documents' ? "Nhập để tìm tài liệu, thẻ..." : "Nhập để tìm thư mục..."}
@@ -356,41 +376,39 @@ const startIndex = (currentPage - 1) * itemsPerPage;
         </div>
 
         {viewMode === 'documents' && (
-          <div className="flex space-x-2 overflow-x-auto py-1 custom-scrollbar">
-            {filters.map(filter => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shrink-0 cursor-pointer ${
-                  activeFilter === filter 
-                    ? 'bg-primary text-white shadow-sm border border-primary' 
-                    : 'bg-surface border border-border text-text-secondary hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
+          <div className="relative shrink-0">
+            <select
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value)}
+              className="bg-surface border border-border text-text-primary text-sm font-semibold rounded-lg px-3.5 py-2 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary cursor-pointer transition-colors shadow-sm"
+            >
+              {filters.map(filter => (
+                <option key={filter} value={filter}>
+                  {filter === 'Tất cả' ? '📁 Tất cả danh mục' : `${filter}`}
+                </option>
+              ))}
+            </select>
           </div>
         )}
-        
+
         <div className="flex items-center space-x-2 justify-end shrink-0 ml-auto">
           {viewMode === 'documents' && (
             <>
               {isSelectMode ? (
                 <>
-                  <button 
+                  <button
                     onClick={handleSelectAll}
                     className="bg-surface border border-border text-text-secondary hover:text-text-primary px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
                   >
                     {filteredDocs.map(d => d.id).every(id => selectedDocIds.includes(id)) ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                   </button>
-                  <button 
+                  <button
                     onClick={() => { setIsSelectMode(false); setSelectedDocIds([]); }}
                     className="bg-surface border border-border text-text-secondary hover:bg-black/5 dark:hover:bg-white/5 px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
                   >
                     Hủy
                   </button>
-                  <button 
+                  <button
                     onClick={handleBulkDelete}
                     disabled={selectedDocIds.length === 0}
                     className="bg-red-500 hover:bg-red-600 disabled:bg-red-500/40 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center space-x-1.5 transition shadow-sm cursor-pointer disabled:cursor-not-allowed"
@@ -403,7 +421,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
                 <>
                   {/* Create Folder Button */}
                   {user?.role !== 'admin' && (
-                    <button 
+                    <button
                       onClick={() => setIsCreateFolderOpen(true)}
                       className="bg-[#52B788] hover:bg-[#409c71] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-1.5 transition shadow-sm cursor-pointer"
                     >
@@ -414,7 +432,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
 
                   {/* Add Document Button */}
                   {user?.role !== 'admin' && (
-                    <button 
+                    <button
                       onClick={() => setIsUploadOpen(true)}
                       className="bg-primary hover:bg-primary-dark text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-1.5 transition shadow-sm cursor-pointer"
                     >
@@ -424,7 +442,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
                   )}
 
                   {/* Bulk Delete Trigger Button */}
-                  <button 
+                  <button
                     onClick={() => setIsSelectMode(true)}
                     className="border border-red-200 dark:border-red-900/30 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 bg-surface px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-1.5 transition shadow-sm cursor-pointer"
                   >
@@ -439,23 +457,22 @@ const startIndex = (currentPage - 1) * itemsPerPage;
       </div>
 
       {/* 4. MAIN VIEW CONTENTS */}
-      
+
       {/* DOCUMENTS VIEW GRID */}
       {viewMode === 'documents' && (
         <div className="space-y-4">
           {paginatedDocs.map(doc => (
-            <div 
-              key={doc.id} 
-              className={`bg-surface border p-5 rounded-xl hover:shadow-md transition-all cursor-pointer flex justify-between items-start ${
-                selectedDocIds.includes(doc.id)
+            <div
+              key={doc.id}
+              className={`bg-surface border p-5 rounded-xl hover:shadow-md transition-all cursor-pointer flex justify-between items-start ${selectedDocIds.includes(doc.id)
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm'
                   : 'border-border'
-              }`}
+                }`}
               onClick={() => {
                 if (isSelectMode) {
-                  setSelectedDocIds(prev => 
-                    prev.includes(doc.id) 
-                      ? prev.filter(id => id !== doc.id) 
+                  setSelectedDocIds(prev =>
+                    prev.includes(doc.id)
+                      ? prev.filter(id => id !== doc.id)
                       : [...prev, doc.id]
                   );
                 } else {
@@ -468,59 +485,59 @@ const startIndex = (currentPage - 1) * itemsPerPage;
                   <input
                     type="checkbox"
                     checked={selectedDocIds.includes(doc.id)}
-                    onChange={() => {}} // handled by parent card onClick
+                    onChange={() => { }} // handled by parent card onClick
                     className="w-4 h-4 rounded text-primary focus:ring-primary border-border cursor-pointer accent-primary"
                   />
                 </div>
               )}
-               <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-3 mb-2">
-                     <h3 className="font-bold text-text-primary text-base">{doc.title}</h3>
-                     <span className="text-[10px] font-semibold text-[#10B981] bg-[#DEF7EC] dark:bg-[#DEF7EC]/10 border border-[#10B981]/20 px-2 py-0.5 rounded text-center leading-none">
-                       Đã xử lý
-                     </span>
-                  </div>
-                  <p className="text-sm text-text-secondary mb-3 max-w-5xl line-clamp-1">{doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}</p>
-                  <div className="flex items-center space-x-2">
-                     {(() => {
-                       const docSubject = doc.subject || 'Khác';
-                       const norm = docSubject.trim().toLowerCase();
-                       const resolvedSubject = (norm === 'auto' || norm === 'general' || norm === 'unknown' || !docSubject.trim()) ? 'Khác' : docSubject;
-                       return (
-                         <span className={`px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap ${getTagColor(resolvedSubject)}`}>
-                           {resolvedSubject}
-                         </span>
-                       );
-                     })()}
-                     {doc.tags?.slice(0,3).map((tag, idx) => (
-                       <span key={idx} className="bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap">
-                         {tag}
-                       </span>
-                     ))}
-                  </div>
-               </div>
-               <div className="text-right flex flex-col items-end justify-between h-full">
-                  <div className="flex items-center space-x-3 mb-1">
-                     <p className="text-text-secondary text-xs">{new Date(doc.created_at).toISOString().split('T')[0]}</p>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/documents/${doc.id}`, { state: { edit: true } });
-                        }}
-                        className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer"
-                        title="Chỉnh sửa tài liệu"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={(e) => initiateDelete(e, doc.id)}
-                        className="text-text-secondary hover:text-red-500 transition-colors p-1 cursor-pointer"
-                        title="Xóa tài liệu"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-3 mb-2">
+                  <h3 className="font-bold text-text-primary text-base">{doc.title}</h3>
+                  <span className="text-[10px] font-semibold text-[#10B981] bg-[#DEF7EC] dark:bg-[#DEF7EC]/10 border border-[#10B981]/20 px-2 py-0.5 rounded text-center leading-none">
+                    Đã xử lý
+                  </span>
                 </div>
+                <p className="text-sm text-text-secondary mb-3 max-w-5xl line-clamp-1">{doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}</p>
+                <div className="flex items-center space-x-2">
+                  {(() => {
+                    const docSubject = doc.subject || 'Khác';
+                    const norm = docSubject.trim().toLowerCase();
+                    const resolvedSubject = (norm === 'auto' || norm === 'general' || norm === 'unknown' || !docSubject.trim()) ? 'Khác' : docSubject;
+                    return (
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap ${getTagColor(resolvedSubject)}`}>
+                        {resolvedSubject}
+                      </span>
+                    );
+                  })()}
+                  {doc.tags?.slice(0, 3).map((tag, idx) => (
+                    <span key={idx} className="bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="text-right flex flex-col items-end justify-between h-full">
+                <div className="flex items-center space-x-3 mb-1">
+                  <p className="text-text-secondary text-xs">{new Date(doc.created_at).toISOString().split('T')[0]}</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/documents/${doc.id}`, { state: { edit: true } });
+                    }}
+                    className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer"
+                    title="Chỉnh sửa tài liệu"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => initiateDelete(e, doc.id)}
+                    className="text-text-secondary hover:text-red-500 transition-colors p-1 cursor-pointer"
+                    title="Xóa tài liệu"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           ))}
 
@@ -538,18 +555,17 @@ const startIndex = (currentPage - 1) * itemsPerPage;
               >
                 Trước
               </button>
-              
+
               {[...Array(totalPages)].map((_, index) => {
                 const pageNum = index + 1;
                 return (
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      currentPage === pageNum
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentPage === pageNum
                         ? 'bg-primary text-white shadow-sm border border-primary'
                         : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
-                    }`}
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -572,7 +588,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
       {viewMode === 'folders' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
           {filteredFolders.map(f => (
-            <div 
+            <div
               key={f.id}
               onClick={() => handleOpenFolder(f.id)}
               className="bg-surface border border-border hover:border-primary/45 rounded-2xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
@@ -581,7 +597,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
                 <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform duration-200">
                   <Folder className="w-6 h-6" />
                 </div>
-                
+
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
                   className="text-text-secondary hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer duration-200"
@@ -595,7 +611,7 @@ const startIndex = (currentPage - 1) * itemsPerPage;
                 <h3 className="font-extrabold text-text-primary text-base truncate mb-1">{f.name}</h3>
                 <p className="text-xs text-text-secondary">{f.docCount || 0} tài liệu bên trong</p>
               </div>
-              
+
               <div className="absolute right-0 bottom-0 w-24 h-24 bg-primary/5 rounded-full translate-x-8 translate-y-8 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </div>
           ))}
@@ -607,8 +623,8 @@ const startIndex = (currentPage - 1) * itemsPerPage;
                 {folders.length === 0 ? "Chưa có thư mục nào được tạo." : "Không tìm thấy thư mục phù hợp."}
               </p>
               <p className="text-xs text-text-secondary/60 mt-1">
-                {folders.length === 0 
-                  ? 'Nhấp vào "Tạo thư mục" ở trên để gom nhóm các tài liệu và hỏi đáp AI!' 
+                {folders.length === 0
+                  ? 'Nhấp vào "Tạo thư mục" ở trên để gom nhóm các tài liệu và hỏi đáp AI!'
                   : 'Hãy thử tìm kiếm với từ khóa khác!'}
               </p>
             </div>
@@ -620,36 +636,36 @@ const startIndex = (currentPage - 1) * itemsPerPage;
       {viewMode === 'deleted' && (
         <div className="space-y-4">
           {filteredDeletedDocs.map(doc => (
-            <div 
-              key={doc.id} 
+            <div
+              key={doc.id}
               className="bg-surface border border-border p-5 rounded-xl flex justify-between items-start"
             >
-               <div className="flex-1 min-w-0 pr-4">
-                  <div className="flex items-center space-x-3 mb-2">
-                     <h3 className="font-bold text-text-primary text-base truncate">{doc.title}</h3>
-                     <span className="text-[10px] font-semibold text-red-500 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-center leading-none whitespace-nowrap shrink-0">
-                       Đã xóa
-                     </span>
-                  </div>
-                  <p className="text-sm text-text-secondary mb-3 max-w-5xl line-clamp-1">
-                     {doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}
-                  </p>
-                  <div className="flex items-center space-x-3 text-xs text-text-secondary">
-                     <span>Chủ sở hữu: <strong>{doc.users?.name || doc.users?.email || 'Hệ thống'}</strong> ({doc.users?.email || 'N/A'})</span>
-                     <span>•</span>
-                     <span>Ngày tạo: {new Date(doc.created_at).toLocaleDateString('vi-VN')}</span>
-                  </div>
-               </div>
-               <div className="text-right flex flex-col justify-center items-end shrink-0 self-center">
-                  <button 
-                    onClick={() => handleRestoreDoc(doc.id, doc.title)}
-                    className="flex items-center space-x-1.5 text-primary hover:bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
-                    title="Khôi phục tài liệu"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Khôi phục</span>
-                  </button>
-               </div>
+              <div className="flex-1 min-w-0 pr-4">
+                <div className="flex items-center space-x-3 mb-2">
+                  <h3 className="font-bold text-text-primary text-base truncate">{doc.title}</h3>
+                  <span className="text-[10px] font-semibold text-red-500 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-center leading-none whitespace-nowrap shrink-0">
+                    Đã xóa
+                  </span>
+                </div>
+                <p className="text-sm text-text-secondary mb-3 max-w-5xl line-clamp-1">
+                  {doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}
+                </p>
+                <div className="flex items-center space-x-3 text-xs text-text-secondary">
+                  <span>Chủ sở hữu: <strong>{doc.users?.name || doc.users?.email || 'Hệ thống'}</strong> ({doc.users?.email || 'N/A'})</span>
+                  <span>•</span>
+                  <span>Ngày tạo: {new Date(doc.created_at).toLocaleDateString('vi-VN')}</span>
+                </div>
+              </div>
+              <div className="text-right flex flex-col justify-center items-end shrink-0 self-center">
+                <button
+                  onClick={() => handleRestoreDoc(doc.id, doc.title)}
+                  className="flex items-center space-x-1.5 text-primary hover:bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
+                  title="Khôi phục tài liệu"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Khôi phục</span>
+                </button>
+              </div>
             </div>
           ))}
 
@@ -660,27 +676,27 @@ const startIndex = (currentPage - 1) * itemsPerPage;
       )}
 
       {/* 5. OVERLAYS AND MODALS LIST */}
-      
-      <ConfirmModal 
-         isOpen={confirmData.isOpen}
-         onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
-         onConfirm={confirmData.onConfirm}
-         title={confirmData.title}
-         message={confirmData.message}
-         confirmText={confirmData.confirmText}
+
+      <ConfirmModal
+        isOpen={confirmData.isOpen}
+        onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmData.onConfirm}
+        title={confirmData.title}
+        message={confirmData.message}
+        confirmText={confirmData.confirmText}
       />
-      
+
       <UploadModal isOpen={isUploadOpen} onClose={() => { setIsUploadOpen(false); fetchDocuments(); }} />
 
-      <CreateFolderModal 
-        isOpen={isCreateFolderOpen} 
+      <CreateFolderModal
+        isOpen={isCreateFolderOpen}
         onClose={() => setIsCreateFolderOpen(false)}
         existingDocs={documents} // Send existing documents list to select from
         onFolderCreated={() => { fetchFolders(); fetchDocuments(); }}
       />
 
-      <FolderDetailModal 
-        isOpen={isFolderDetailOpen} 
+      <FolderDetailModal
+        isOpen={isFolderDetailOpen}
         onClose={() => setIsFolderDetailOpen(false)}
         folderId={selectedFolderId}
         onFolderDeleted={() => { fetchFolders(); fetchDocuments(); }}

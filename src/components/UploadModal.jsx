@@ -90,25 +90,29 @@ const UploadModal = ({ isOpen, onClose }) => {
         folderId = foldRes.data.id;
       }
 
-      // 2. Upload each file sequentially
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        // Determine subject
-        if (subject !== 'Auto') {
-           formData.append('subject', subject === 'Khác' ? customSubject.trim() || 'Khác' : subject);
-        }
-        
-        // Add folder if any
-        if (folderId) {
-          formData.append('folder_id', folderId);
-        }
-        
-        await API.post('/documents', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-      }
+      // 2. Upload all files concurrently in parallel
+      await Promise.all(
+        files.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          // Determine subject
+          if (subject !== 'Auto') {
+            formData.append('subject', subject === 'Khác' ? customSubject.trim() || 'Khác' : subject);
+          } else {
+            formData.append('subject', 'Auto');
+          }
+          
+          // Add folder if any
+          if (folderId) {
+            formData.append('folder_id', folderId);
+          }
+          
+          return API.post('/documents', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        })
+      );
       
       // Realtime syncing will pick this up automatically!
       onClose();
