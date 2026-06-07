@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import API from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Link as LinkIcon, Trash2, Send, Sparkles, BookOpen, Key, AlertTriangle, MessageSquare } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import { AuthContext } from '../context/AuthContext';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
@@ -18,6 +19,7 @@ const DocumentDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useContext(AuthContext);
   const [doc, setDoc] = useState(null);
   const [relatedDocs, setRelatedDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,81 @@ const DocumentDetail = () => {
   const [editSummary, setEditSummary] = useState('');
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Quiz states
+  const [quizActive, setQuizActive] = useState(false);
+  const [quizLoading, setQuizLoading] = useState(false);
+  const [quiz, setQuiz] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [quizScore, setQuizScore] = useState(0);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+
+  const handleStartQuiz = async () => {
+    // Check Pro package first
+    if (!user?.is_pro && user?.role !== 'admin') {
+      toast.error(
+        (t) => (
+          <div className="flex flex-col space-y-2.5">
+            <span className="font-bold text-sm text-text-primary">Tính năng Pro đặc biệt!</span>
+            <span className="text-xs text-text-secondary">Vui lòng nâng cấp tài khoản lên gói PRO để tự động tạo câu hỏi trắc nghiệm ôn tập bằng AI.</span>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                navigate('/#pricing');
+              }}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg self-end"
+            >
+              Nâng cấp ngay
+            </button>
+          </div>
+        ),
+        { duration: 6000 }
+      );
+      return;
+    }
+
+    setQuizActive(true);
+    setQuizLoading(true);
+    try {
+      const res = await API.post('/ai/quiz', { documentId: id });
+      setQuiz(res.data.quiz);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Không thể khởi tạo bộ quiz AI lúc này.");
+      setQuizActive(false);
+    } finally {
+      setQuizLoading(false);
+    }
+  };
+
+  const handleSelectAnswer = (option) => {
+    setSelectedAnswer(option);
+    if (option === quiz[currentQuestionIndex].answer) {
+      setQuizScore(prev => prev + 1);
+    }
+  };
+
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex + 1 === quiz.length) {
+      setQuizCompleted(true);
+    } else {
+      setCurrentQuestionIndex(prev => prev + 1);
+      setSelectedAnswer(null);
+    }
+  };
+
+  const handleResetQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setSelectedAnswer(null);
+    setQuizScore(0);
+    setQuizCompleted(false);
+  };
+
+  const handleCloseQuiz = () => {
+    setQuizActive(false);
+    setQuiz(null);
+    handleResetQuiz();
+  };
 
   // AI Chatbox and Studio state
   const [chatMessages, setChatMessages] = useState([
@@ -128,6 +205,11 @@ const DocumentDetail = () => {
   const handleSendChat = async (directText = null) => {
     const textToSend = directText || chatInput;
     if (!textToSend.trim()) return;
+
+    if (directText === 'Hãy tạo 5 câu hỏi trắc nghiệm (quiz) chất lượng cao dựa trên nội dung tài liệu này, có kèm đáp án và giải thích chi tiết cho từng câu.') {
+      handleStartQuiz();
+      return;
+    }
 
     setChatMessages(prev => [...prev, { role: 'user', text: textToSend.trim() }]);
     if (!directText) setChatInput('');
@@ -300,6 +382,140 @@ const DocumentDetail = () => {
                 <h2 className="text-lg font-bold text-text-primary mb-4">Tóm tắt nội dung</h2>
                 <div className="text-text-secondary text-sm leading-relaxed whitespace-pre-wrap">
                   {doc.summary || 'Tài liệu đang xử lý tóm tắt. Vui lòng thử lại sau.'}
+                </div>
+
+                {/* Quiz AI Activation Panel */}
+                <div className="mt-8 border-t border-border pt-6">
+                  {!quizActive ? (
+                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-emerald-500 font-extrabold text-xs flex items-center space-x-1 uppercase tracking-wider">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Tính năng PRO đặc biệt</span>
+                          </span>
+                        </div>
+                        <h4 className="font-extrabold text-text-primary text-base">Tạo trắc nghiệm ôn tập (Quiz AI)</h4>
+                        <p className="text-xs text-text-secondary">AI của Gemini sẽ tự động soạn thảo bộ 5 câu hỏi trắc nghiệm dựa trên nội dung văn bản này để bạn ôn luyện kiến thức.</p>
+                      </div>
+
+                      <button
+                        onClick={handleStartQuiz}
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs py-3 px-5 rounded-xl transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        Bắt đầu làm Quiz AI 🧠
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-surface border border-emerald-500/30 rounded-2xl p-6 shadow-md relative">
+                      {/* Close button for Quiz */}
+                      <button 
+                        onClick={handleCloseQuiz}
+                        className="absolute right-4 top-4 text-text-secondary hover:text-text-primary text-xs font-bold bg-black/5 dark:bg-white/5 px-2.5 py-1 rounded-lg cursor-pointer"
+                      >
+                        Đóng Quiz
+                      </button>
+
+                      {quizLoading ? (
+                        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                          <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+                          <p className="text-xs text-text-secondary font-bold animate-pulse">Gemini AI đang soạn bộ đề trắc nghiệm...</p>
+                        </div>
+                      ) : quizCompleted ? (
+                        <div className="text-center py-8 space-y-4">
+                          <div className="w-20 h-20 bg-emerald-500/15 text-emerald-500 rounded-full flex items-center justify-center mx-auto text-2xl font-black">
+                            {quizScore} / {quiz?.length}
+                          </div>
+                          <h4 className="font-extrabold text-text-primary text-lg">Hoàn thành bài ôn tập trắc nghiệm!</h4>
+                          <p className="text-sm text-text-secondary max-w-md mx-auto">
+                            {quizScore === quiz?.length 
+                              ? "Tuyệt vời! Bạn đã trả lời chính xác 100% tất cả các câu hỏi." 
+                              : `Bạn đã trả lời đúng ${quizScore} trên tổng số ${quiz?.length} câu hỏi. Hãy rèn luyện thêm nhé!`}
+                          </p>
+                          <button
+                            onClick={handleResetQuiz}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs py-2.5 px-6 rounded-xl transition shadow-md shadow-emerald-500/20 cursor-pointer"
+                          >
+                            Làm lại bài
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {/* Question progress */}
+                          <div className="flex justify-between items-center text-xs text-text-secondary font-bold">
+                            <span className="uppercase text-emerald-600">Bài ôn tập Quiz AI</span>
+                            <span>Câu {currentQuestionIndex + 1} / {quiz?.length}</span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full bg-black/5 dark:bg-white/5 h-1.5 rounded-full overflow-hidden">
+                            <div 
+                              className="bg-emerald-500 h-full transition-all duration-300"
+                              style={{ width: `${((currentQuestionIndex) / (quiz?.length || 1)) * 100}%` }}
+                            />
+                          </div>
+
+                          {/* Question details */}
+                          <div className="space-y-4">
+                            <h4 className="font-extrabold text-text-primary text-base leading-relaxed">
+                              {quiz?.[currentQuestionIndex]?.question}
+                            </h4>
+
+                            {/* Options */}
+                            <div className="grid grid-cols-1 gap-3">
+                              {quiz?.[currentQuestionIndex]?.options?.map((option, idx) => {
+                                const isSelected = selectedAnswer === option;
+                                const isCorrect = option === quiz?.[currentQuestionIndex]?.answer;
+                                const hasAnswered = selectedAnswer !== null;
+
+                                let btnStyle = "border-border bg-background hover:bg-black/5 dark:hover:bg-white/5 text-text-primary";
+                                if (hasAnswered) {
+                                  if (isCorrect) {
+                                    btnStyle = "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold";
+                                  } else if (isSelected) {
+                                    btnStyle = "border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 font-bold";
+                                  } else {
+                                    btnStyle = "border-border bg-background opacity-50 text-text-secondary";
+                                  }
+                                }
+
+                                return (
+                                  <button
+                                    key={idx}
+                                    disabled={hasAnswered}
+                                    onClick={() => handleSelectAnswer(option)}
+                                    className={`w-full text-left p-3.5 border rounded-xl text-xs transition-all flex items-center justify-between cursor-pointer ${btnStyle}`}
+                                  >
+                                    <span>{option}</span>
+                                    {hasAnswered && isCorrect && <span className="text-emerald-500 font-bold">✓</span>}
+                                    {hasAnswered && isSelected && !isCorrect && <span className="text-red-500 font-bold">✗</span>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Explanation block */}
+                          {selectedAnswer !== null && (
+                            <div className="bg-emerald-500/5 border border-emerald-500/15 p-4 rounded-xl text-xs text-text-secondary leading-relaxed animate-fadeIn">
+                              <strong className="text-emerald-600 block mb-1">Giải thích chi tiết:</strong>
+                              {quiz?.[currentQuestionIndex]?.explanation}
+                            </div>
+                          )}
+
+                          {/* Next / Finished button */}
+                          {selectedAnswer !== null && (
+                            <button
+                              onClick={handleNextQuestion}
+                              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs py-3 rounded-xl transition shadow-md shadow-emerald-500/20 cursor-pointer text-center"
+                            >
+                              {currentQuestionIndex + 1 === quiz?.length ? "Xem kết quả bài Quiz" : "Câu hỏi tiếp theo"}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </>
