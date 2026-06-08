@@ -211,7 +211,7 @@ const UploadModal = ({ isOpen, onClose }) => {
             <UploadCloud className="w-6 h-6" />
           </div>
           <p className="text-text-primary text-sm font-medium">Nhấp để chọn hoặc kéo thả các file vào đây</p>
-          <p className="text-text-secondary text-[10px] mt-1 text-center">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .png, .jpg)</p>
+          <p className="text-text-secondary text-[10px] mt-1 text-center">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .docx, .xlsx, .pptx, .html, .txt, .png, .jpg)</p>
           
           <input 
             type="file" 
@@ -219,7 +219,7 @@ const UploadModal = ({ isOpen, onClose }) => {
             className="hidden" 
             ref={fileInputRef} 
             onChange={handleFileChange}
-            accept=".pdf,.png,.jpg,.jpeg"
+            accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.txt,.png,.jpg,.jpeg"
           />
         </div>
 

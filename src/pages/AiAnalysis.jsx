@@ -173,20 +173,82 @@ const AiAnalysis = () => {
     setChatLoading(true);
 
     try {
-      if (contextDocId) {
-        const res = await API.post('/ai/qna', { documentId: contextDocId, question: userMsg });
-        setChatHistory(prev => [...prev, { role: 'ai', text: res.data.answer }]);
-      } else if (contextFolderId) {
-        const res = await API.post('/ai/folder-chat', { folderId: contextFolderId, question: userMsg });
-        setChatHistory(prev => [...prev, { role: 'ai', text: res.data.answer }]);
-      } else {
-        const res = await API.post('/ai/chat', { message: userMsg });
-        setChatHistory(prev => [...prev, { role: 'ai', text: res.data.answer }]);
+      // Add an empty AI placeholder message to chat history that we will stream text into
+      setChatHistory(prev => [...prev, { role: 'ai', text: '' }]);
+
+      const user = JSON.parse(localStorage.getItem('user'));
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+      if (user?.token) {
+        headers['Authorization'] = `Bearer ${user.token}`;
+      }
+
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const url = contextDocId
+        ? `${baseUrl}/ai/qna`
+        : contextFolderId
+          ? `${baseUrl}/ai/folder-chat`
+          : `${baseUrl}/ai/chat`;
+
+      const body = contextDocId
+        ? { documentId: contextDocId, question: userMsg }
+        : contextFolderId
+          ? { folderId: contextFolderId, question: userMsg }
+          : { message: userMsg };
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        throw new Error('Streaming request failed');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let textBuffer = '';
+
+      // Hide initial chat loader as stream begins
+      setChatLoading(false);
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          const chunk = decoder.decode(value, { stream: !done });
+          textBuffer += chunk;
+          
+          setChatHistory(prev => {
+            const updated = [...prev];
+            if (updated.length > 0 && updated[updated.length - 1].role === 'ai') {
+              updated[updated.length - 1] = { role: 'ai', text: textBuffer };
+            }
+            return updated;
+          });
+        }
       }
     } catch (err) {
-      setChatHistory(prev => [...prev, { role: 'ai', text: 'Xin lỗi, kết nối API bị lỗi. Vui lòng thử lại.' }]);
-    } finally {
+      console.error('Streaming Chat Error:', err);
       setChatLoading(false);
+      setChatHistory(prev => {
+        const updated = [...prev];
+        // If the last message is the empty AI placeholder, set it to the error message
+        if (updated.length > 0 && updated[updated.length - 1].role === 'ai') {
+          const lastMsg = updated[updated.length - 1];
+          if (!lastMsg.text || lastMsg.text.trim() === '') {
+            updated[updated.length - 1] = { role: 'ai', text: 'Xin lỗi, kết nối API bị lỗi. Vui lòng thử lại.' };
+          } else {
+            updated[updated.length - 1] = { role: 'ai', text: lastMsg.text + '\n\n[Lỗi kết nối API hoặc hết lượt hạn mức free]' };
+          }
+        } else {
+          updated.push({ role: 'ai', text: 'Xin lỗi, kết nối API bị lỗi. Vui lòng thử lại.' });
+        }
+        return updated;
+      });
     }
   };
 
@@ -313,7 +375,7 @@ const AiAnalysis = () => {
             >
               <Upload className="w-6 h-6 text-text-secondary mb-2" />
               <p className="text-sm font-semibold text-text-primary mb-1">Kéo thả tài liệu vào đây</p>
-              <p className="text-xs text-text-secondary mb-4">PDF, DOCX, TXT, XLSX (Tối đa 20MB)</p>
+              <p className="text-xs text-text-secondary mb-4">PDF, DOCX, XLSX, PPTX, HTML, TXT (Tối đa 20MB)</p>
               <button className="bg-surface border border-border px-4 py-2 text-xs font-semibold rounded-lg hover:bg-black/5 transition">
                 Chọn tệp
               </button>
@@ -323,7 +385,7 @@ const AiAnalysis = () => {
                 className="hidden"
                 ref={fileInputRef}
                 onChange={(e) => setFile(e.target.files[0])}
-                accept=".pdf,.png,.jpg,.jpeg"
+                accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.txt,.png,.jpg,.jpeg"
               />
             </div>
 

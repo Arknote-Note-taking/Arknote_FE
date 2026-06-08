@@ -275,6 +275,13 @@ const DocumentList = () => {
   const paginatedDocs = filteredDocs.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
 
+  useEffect(() => {
+    const maxPage = Math.max(1, totalPages);
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage);
+    }
+  }, [totalPages, currentPage]);
+
   const filteredDeletedDocs = deletedDocs.filter(doc => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
