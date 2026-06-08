@@ -179,13 +179,13 @@ const CreateFolderModal = ({ isOpen, onClose, onFolderCreated, existingDocs = []
             >
               <Upload className="w-6 h-6 text-text-secondary mb-2 group-hover:scale-110 transition-transform" />
               <span className="text-xs font-semibold text-text-primary">Chọn các tệp tin từ máy tính của bạn</span>
-              <span className="text-[10px] text-text-secondary mt-1">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .png, .jpg)</span>
+              <span className="text-[10px] text-text-secondary mt-1">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .docx, .xlsx, .pptx, .html, .txt, .png, .jpg)</span>
               <input 
                 type="file" 
                 multiple
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".pdf,.png,.jpg,.jpeg"
+                accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.txt,.png,.jpg,.jpeg"
                 className="hidden" 
               />
             </div>
