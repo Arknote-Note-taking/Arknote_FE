@@ -25,12 +25,18 @@ const LandingPage = () => {
 
     setUpgrading(true);
     try {
-      await API.post('/users/upgrade-pro');
-      login({ ...user, is_pro: true });
-      toast.success('Chúc mừng! Bạn đã nâng cấp lên tài khoản PRO thành công! 🎉');
-      navigate('/dashboard');
+      const res = await API.post('/payment/create-payment-link');
+      if (res.data && res.data.checkoutUrl) {
+        toast.success('Đang kết nối cổng thanh toán PayOS...');
+        setTimeout(() => {
+          window.location.href = res.data.checkoutUrl;
+        }, 800);
+      } else {
+        throw new Error('Không khởi tạo được link thanh toán');
+      }
     } catch (err) {
-      toast.error('Gặp sự cố khi kết nối hệ thống nâng cấp. Vui lòng thử lại sau.');
+      const errorMsg = err.response?.data?.error || 'Gặp sự cố khi kết nối hệ thống nâng cấp. Vui lòng thử lại sau.';
+      toast.error(errorMsg);
     } finally {
       setUpgrading(false);
     }

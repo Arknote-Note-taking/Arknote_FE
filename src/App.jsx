@@ -29,6 +29,8 @@ import GraphView from './pages/GraphView';
 import DocumentDetail from './pages/DocumentDetail';
 import UserManagement from './pages/UserManagement';
 import Profile from './pages/Profile';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentCancel from './pages/PaymentCancel';
 
 const PrivateRoute = ({ children }) => {
   const { user } = useContext(AuthContext);
@@ -71,6 +73,8 @@ const AppContent = () => {
         <Route path="/ai" element={<PrivateRoute><AiAnalysis /></PrivateRoute>} />
         <Route path="/graph" element={<PrivateRoute><GraphView /></PrivateRoute>} />
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+        <Route path="/payment-success" element={<PrivateRoute><PaymentSuccess /></PrivateRoute>} />
+        <Route path="/payment-cancel" element={<PrivateRoute><PaymentCancel /></PrivateRoute>} />
         <Route path="/users" element={user && user.role === 'admin' ? <PrivateRoute><UserManagement /></PrivateRoute> : <Navigate to="/dashboard" />} />
       </Routes>
     </Router>
