@@ -165,3 +165,38 @@ textarea {
 .transition-theme {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
+
+/* ===================== */
+/* ROW HIGHLIGHT ANIMATION */
+/* ===================== */
+@keyframes highlightGlow {
+  0% {
+    box-shadow: 0 0 0 0px rgba(50, 129, 61, 0);
+    border-color: var(--border-color);
+    background-color: var(--color-surface);
+    transform: scale(1);
+  }
+  15% {
+    box-shadow: 0 0 0 6px rgba(50, 129, 61, 0.45);
+    border-color: #32813D;
+    background-color: rgba(50, 129, 61, 0.12);
+    transform: scale(1.006);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(50, 129, 61, 0);
+    border-color: #32813D;
+    background-color: rgba(50, 129, 61, 0.22);
+    transform: scale(1.006);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(50, 129, 61, 0);
+    border-color: var(--border-color);
+    background-color: var(--color-surface);
+    transform: scale(1);
+  }
+}
+
+.highlight-row-active {
+  animation: highlightGlow 2.5s ease-in-out 1 forwards;
+  transition: all 0.3s ease;
+}
