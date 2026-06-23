@@ -1,12 +1,31 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2 } from 'lucide-react';
+import { SocketContext } from '../context/SocketContext';
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
+  const { notifications, unreadCount, markAllAsRead, markAsRead, clearNotifications, deleteNotification } = useContext(SocketContext);
+  const [showNotifications, setShowNotifications] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const handleNotificationClick = (notif) => {
+    markAsRead(notif.id);
+    setShowNotifications(false);
+
+    const targetDocId = notif.doc_id || notif.docId;
+    if (!targetDocId) return;
+
+    if (notif.type === 'document_restore_request' || notif.is_for_admin) {
+      // Admin redirect: Deleted Documents
+      navigate('/documents', { state: { viewMode: 'deleted', highlightDocId: targetDocId } });
+    } else if (notif.type === 'document_restored' || !notif.is_for_admin) {
+      // User redirect: Active Documents
+      navigate('/documents', { state: { viewMode: 'documents', highlightDocId: targetDocId } });
+    }
+  };
 
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -71,28 +90,30 @@ const MainLayout = ({ children }) => {
         </div>
         <div className="p-4 border-t border-border space-y-4">
           {/* Plan status card */}
-          <div className="bg-background border border-border p-3.5 rounded-2xl flex flex-col space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Gói tài khoản</span>
-              {user?.is_pro ? (
-                <span className="text-[9px] bg-amber-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
-                  Pro
-                </span>
-              ) : (
-                <span className="text-[9px] bg-slate-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-slate-500/25 uppercase tracking-wider">
-                  Free
-                </span>
+          {user?.role !== 'admin' && (
+            <div className="bg-background border border-border p-3.5 rounded-2xl flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Gói tài khoản</span>
+                {user?.is_pro ? (
+                  <span className="text-[9px] bg-amber-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
+                    Pro
+                  </span>
+                ) : (
+                  <span className="text-[9px] bg-slate-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-slate-500/25 uppercase tracking-wider">
+                    Free
+                  </span>
+                )}
+              </div>
+              {!user?.is_pro && (
+                <button
+                  onClick={() => navigate('/#pricing')}
+                  className="text-[10px] text-primary hover:text-primary-dark font-extrabold w-fit hover:underline text-left cursor-pointer transition"
+                >
+                  Nâng cấp lên PRO
+                </button>
               )}
             </div>
-            {!user?.is_pro && (
-              <button
-                onClick={() => navigate('/#pricing')}
-                className="text-[10px] text-primary hover:text-primary-dark font-extrabold w-fit hover:underline text-left cursor-pointer transition"
-              >
-                Nâng cấp lên PRO
-              </button>
-            )}
-          </div>
+          )}
 
           <button
             onClick={handleLogout}
@@ -123,9 +144,89 @@ const MainLayout = ({ children }) => {
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
 
-            <button className="text-text-secondary hover:text-text-primary transition cursor-pointer">
-              <Bell className="w-5 h-5" />
-            </button>
+            {/* Notifications Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="text-text-secondary hover:text-text-primary transition cursor-pointer relative p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
+                title="Thông báo"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center animate-pulse">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-2xl shadow-xl z-[250] overflow-hidden transform origin-top-right transition-all">
+                  <div className="p-4 border-b border-border flex items-center justify-between bg-background">
+                    <span className="font-extrabold text-sm text-text-primary">Thông báo</span>
+                    <div className="flex space-x-2 text-[10px]">
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={() => { markAllAsRead(); }}
+                          className="text-primary hover:underline font-bold cursor-pointer"
+                        >
+                          Đọc tất cả
+                        </button>
+                      )}
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={() => { clearNotifications(); }}
+                          className="text-text-secondary hover:text-red-500 hover:underline font-semibold cursor-pointer"
+                        >
+                          Xóa hết
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="overflow-y-auto divide-y divide-border custom-scrollbar" style={{ maxHeight: '225px' }}>
+                    {notifications.map((notif) => (
+                      <div
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className={`p-3.5 text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer ${
+                          !notif.read ? 'bg-primary/5 font-medium' : 'text-text-secondary'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start gap-1">
+                          <span className={`font-bold ${!notif.read ? 'text-text-primary' : 'text-text-secondary'}`}>
+                            {notif.title}
+                          </span>
+                          <div className="flex items-center space-x-1.5 shrink-0">
+                            <span className="text-[9px] text-text-secondary whitespace-nowrap">
+                              {new Date(notif.created_at || notif.createdAt || new Date()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notif.id);
+                              }}
+                              className="text-text-secondary hover:text-red-500 p-0.5 rounded transition-all opacity-60 hover:opacity-100 cursor-pointer"
+                              title="Xóa thông báo này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-text-secondary mt-1 leading-normal">
+                          {notif.message}
+                        </p>
+                      </div>
+                    ))}
+
+                    {notifications.length === 0 && (
+                      <div className="p-8 text-center text-text-secondary text-xs italic">
+                        Không có thông báo nào.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <NavLink to="/profile" className="flex items-center space-x-2 border border-border p-1 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 hover:border-primary/30 transition group">
               <div className="w-7 h-7 bg-text-secondary/10 group-hover:bg-primary/10 rounded-full flex items-center justify-center transition-colors overflow-hidden">
                 {user?.avatar_url ? (

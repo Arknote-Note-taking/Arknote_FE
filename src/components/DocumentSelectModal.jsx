@@ -89,21 +89,35 @@ const DocumentSelectModal = ({
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
     
-    // Check duplicates against database
+    const allowedExtensions = [
+      '.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt', '.csv', 
+      '.html', '.htm', '.txt', '.png', '.jpg', '.jpeg', '.mp4', '.mov', '.avi', '.mkv'
+    ];
+    
+    // Check validation and duplicates against database
+    const invalidFiles = [];
     const duplicates = [];
     const validFiles = [];
 
     selectedFiles.forEach(file => {
-      const isAlreadyUploaded = existingDocs.some(d => d.title === file.name);
-      if (isAlreadyUploaded) {
-        duplicates.push(file.name);
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      if (!allowedExtensions.includes(ext)) {
+        invalidFiles.push(file.name);
       } else {
-        validFiles.push(file);
+        const isAlreadyUploaded = existingDocs.some(d => d.title === file.name);
+        if (isAlreadyUploaded) {
+          duplicates.push(file.name);
+        } else {
+          validFiles.push(file);
+        }
       }
     });
 
+    if (invalidFiles.length > 0) {
+      toast.error(`Định dạng tệp không được hỗ trợ: \n${invalidFiles.join(', \n')}`);
+    }
     if (duplicates.length > 0) {
-      toast.error(`Tài liệu đã tồn tại và không được thêm: \n${duplicates.join(', \n')}`);
+      toast.error(`Tài liệu đã tồn tại trong thư viện: \n${duplicates.join(', \n')}`);
     }
 
     if (validFiles.length === 0) return;
@@ -356,7 +370,7 @@ const DocumentSelectModal = ({
                 <UploadCloud className="w-6 h-6" />
               </div>
               <p className="text-text-primary text-sm font-medium">Nhấp để chọn hoặc kéo thả các file vào đây</p>
-              <p className="text-text-secondary text-[10px] mt-1 text-center">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .docx, .xlsx, .pptx, .html, .txt, .png, .jpg)</p>
+              <p className="text-text-secondary text-[10px] mt-1 text-center">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .docx, .doc, .xlsx, .xls, .pptx, .ppt, .csv, .mp4, .mov, .avi, .mkv, .txt, .png, .jpg)</p>
               
               <input 
                 type="file" 
@@ -364,7 +378,7 @@ const DocumentSelectModal = ({
                 className="hidden" 
                 ref={fileInputRef} 
                 onChange={handleFileChange}
-                accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.txt,.png,.jpg,.jpeg"
+                accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.html,.htm,.txt,.png,.jpg,.jpeg,.mp4,.mov,.avi,.mkv"
               />
             </div>
 

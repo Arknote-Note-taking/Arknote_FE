@@ -362,10 +362,6 @@ const LandingPage = () => {
                     <CheckCircle className="w-4 h-4 text-primary shrink-0" />
                     <span>Ưu tiên băng thông & phản hồi AI siêu tốc</span>
                   </li>
-                  <li className="flex items-center space-x-2 font-semibold">
-                    <CheckCircle className="w-4 h-4 text-primary shrink-0" />
-                    <span>Hỗ trợ chuyên gia 24/7 & khôi phục dữ liệu nâng cao</span>
-                  </li>
                 </ul>
               </div>
 

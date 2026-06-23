@@ -11,7 +11,12 @@ import {
   BookOpen,
   Key,
   AlertTriangle,
-  Folder
+  Folder,
+  Plus,
+  Edit2,
+  Trash2,
+  Check,
+  X
 } from 'lucide-react';
 import DocumentSelectModal from '../components/DocumentSelectModal';
 import FolderSelectModal from '../components/FolderSelectModal';
@@ -36,12 +41,12 @@ const AiAnalysis = () => {
   const [isSelectModalOpen, setIsSelectModalOpen] = useState(false);
   const [isFolderSelectModalOpen, setIsFolderSelectModalOpen] = useState(false);
 
-  const [chatHistory, setChatHistory] = useState([
-    {
-      role: 'ai',
-      text: 'Xin chào! Tôi là AI trợ lý phân tích tài liệu. Bạn có thể:\n- Chọn hoặc tải lên tài liệu / thư mục để phân tích\n- Hỏi về nội dung tài liệu / thư mục\n- Yêu cầu tóm tắt nội dung\n- Tìm kiếm thông tin cốt lõi'
-    }
-  ]);
+  // Chat histories state
+  const [chats, setChats] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [renamingChatId, setRenamingChatId] = useState(null);
+  const [renameTitle, setRenameTitle] = useState('');
+
   const fileInputRef = useRef(null);
   const chatContainerRef = useRef(null);
 
@@ -80,7 +85,7 @@ const AiAnalysis = () => {
         behavior: 'smooth'
       });
     }
-  }, [chatHistory, chatLoading]);
+  }, [chats, currentChatId, chatLoading]);
 
   const fetchDocsAndFolders = async () => {
     try {
@@ -95,37 +100,120 @@ const AiAnalysis = () => {
     }
   };
 
+  const fetchChats = async () => {
+    try {
+      const res = await API.get('/ai/chats');
+      setChats(res.data);
+      if (res.data.length > 0) {
+        setCurrentChatId(res.data[0].id);
+        setContextDocId(res.data[0].context_doc_id);
+        setContextFolderId(res.data[0].context_folder_id);
+      }
+    } catch (err) {
+      console.error('Failed to load chats:', err);
+    }
+  };
+
   useEffect(() => {
     fetchDocsAndFolders();
+    fetchChats();
   }, []);
 
-  const handleSelectExistingDoc = (docId) => {
+  const handleSelectExistingDoc = async (docId) => {
     if (!docId) return;
     const doc = existingDocs.find(d => d.id === docId);
     if (doc) {
       setContextDocId(doc.id);
-      setContextFolderId(null); // Clear folder context
+      setContextFolderId(null);
       setIsSelectModalOpen(false);
-      setChatHistory(prev => [
-        ...prev,
-        { role: 'user', type: 'file', docName: doc.title },
-        { role: 'ai', text: `Trong không gian của tài liệu "${doc.title}" đã chọn, bạn có yêu cầu gì?` }
-      ]);
+
+      if (currentChatId) {
+        // Update context doc of existing chat in DB
+        try {
+          const chatObj = chats.find(c => c.id === currentChatId);
+          const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
+          const updatedMsgs = [
+            ...currentMsgs,
+            { role: 'user', type: 'file', docName: doc.title },
+            { role: 'ai', text: `Trong không gian của tài liệu "${doc.title}" đã chọn, bạn có yêu cầu gì?` }
+          ];
+          setChats(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMsgs, context_doc_id: doc.id, context_folder_id: null } : c));
+          await API.put(`/ai/chats/${currentChatId}`, { 
+            context_doc_id: doc.id, 
+            context_folder_id: null,
+            messages: updatedMsgs
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        // Auto-create chat session
+        try {
+          const defaultMsgs = [
+            { role: 'user', type: 'file', docName: doc.title },
+            { role: 'ai', text: `Trong không gian của tài liệu "${doc.title}" đã chọn, bạn có yêu cầu gì?` }
+          ];
+          const createRes = await API.post('/ai/chats', {
+            title: `Phân tích: ${doc.title.slice(0, 20)}`,
+            context_doc_id: doc.id,
+            context_folder_id: null
+          });
+          const newChat = { ...createRes.data, messages: defaultMsgs };
+          await API.put(`/ai/chats/${newChat.id}`, { messages: defaultMsgs });
+          setChats(prev => [newChat, ...prev]);
+          setCurrentChatId(newChat.id);
+        } catch (err) {
+          console.error(err);
+        }
+      }
     }
   };
 
-  const handleSelectExistingFolder = (folderId) => {
+  const handleSelectExistingFolder = async (folderId) => {
     if (!folderId) return;
     const folder = existingFolders.find(f => f.id === folderId);
     if (folder) {
       setContextFolderId(folder.id);
-      setContextDocId(null); // Clear document context
+      setContextDocId(null);
       setIsFolderSelectModalOpen(false);
-      setChatHistory(prev => [
-        ...prev,
-        { role: 'user', type: 'file', docName: `Thư mục: ${folder.name}` },
-        { role: 'ai', text: `Đã kích hoạt không gian Thư mục "${folder.name}". Tôi sẽ phân tích tổng hợp từ tất cả các tài liệu có trong thư mục này để trả lời bạn. Bạn muốn tôi giúp gì?` }
-      ]);
+
+      if (currentChatId) {
+        try {
+          const chatObj = chats.find(c => c.id === currentChatId);
+          const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
+          const updatedMsgs = [
+            ...currentMsgs,
+            { role: 'user', type: 'file', docName: `Thư mục: ${folder.name}` },
+            { role: 'ai', text: `Đã kích hoạt không gian Thư mục "${folder.name}". Tôi sẽ phân tích tổng hợp từ tất cả các tài liệu có trong thư mục này để trả lời bạn. Bạn muốn tôi giúp gì?` }
+          ];
+          setChats(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMsgs, context_doc_id: null, context_folder_id: folder.id } : c));
+          await API.put(`/ai/chats/${currentChatId}`, { 
+            context_doc_id: null, 
+            context_folder_id: folder.id,
+            messages: updatedMsgs
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        try {
+          const defaultMsgs = [
+            { role: 'user', type: 'file', docName: `Thư mục: ${folder.name}` },
+            { role: 'ai', text: `Đã kích hoạt không gian Thư mục "${folder.name}". Tôi sẽ phân tích tổng hợp từ tất cả các tài liệu có trong thư mục này để trả lời bạn. Bạn muốn tôi giúp gì?` }
+          ];
+          const createRes = await API.post('/ai/chats', {
+            title: `Thư mục: ${folder.name.slice(0, 20)}`,
+            context_doc_id: null,
+            context_folder_id: folder.id
+          });
+          const newChat = { ...createRes.data, messages: defaultMsgs };
+          await API.put(`/ai/chats/${newChat.id}`, { messages: defaultMsgs });
+          setChats(prev => [newChat, ...prev]);
+          setCurrentChatId(newChat.id);
+        } catch (err) {
+          console.error(err);
+        }
+      }
     }
   };
 
@@ -145,14 +233,40 @@ const AiAnalysis = () => {
 
       // Update lists locally
       setExistingDocs(prev => [res.data, ...prev]);
-
       setContextDocId(res.data.id);
-      setContextFolderId(null); // Clear folder context
-      setChatHistory(prev => [
-        ...prev,
-        { role: 'user', type: 'file', docName: file.name },
-        { role: 'ai', text: `Đã tiếp nhận không gian ngữ nghĩa từ tài liệu "${file.name}". Bạn muốn tôi giúp gì từ dữ liệu này?` }
-      ]);
+      setContextFolderId(null);
+
+      // Auto create or append to chat
+      if (currentChatId) {
+        const chatObj = chats.find(c => c.id === currentChatId);
+        const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
+        const updatedMsgs = [
+          ...currentMsgs,
+          { role: 'user', type: 'file', docName: file.name },
+          { role: 'ai', text: `Đã tiếp nhận không gian ngữ nghĩa từ tài liệu "${file.name}". Bạn muốn tôi giúp gì từ dữ liệu này?` }
+        ];
+        setChats(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMsgs, context_doc_id: res.data.id, context_folder_id: null } : c));
+        await API.put(`/ai/chats/${currentChatId}`, { 
+          context_doc_id: res.data.id, 
+          context_folder_id: null,
+          messages: updatedMsgs
+        });
+      } else {
+        const defaultMsgs = [
+          { role: 'user', type: 'file', docName: file.name },
+          { role: 'ai', text: `Đã tiếp nhận không gian ngữ nghĩa từ tài liệu "${file.name}". Bạn muốn tôi giúp gì từ dữ liệu này?` }
+        ];
+        const createRes = await API.post('/ai/chats', {
+          title: `Upload: ${file.name.slice(0, 20)}`,
+          context_doc_id: res.data.id,
+          context_folder_id: null
+        });
+        const newChat = { ...createRes.data, messages: defaultMsgs };
+        await API.put(`/ai/chats/${newChat.id}`, { messages: defaultMsgs });
+        setChats(prev => [newChat, ...prev]);
+        setCurrentChatId(newChat.id);
+      }
+
       toast.success('Đã nạp tài liệu vào khung Chat!');
       setFile(null);
     } catch (err) {
@@ -169,12 +283,45 @@ const AiAnalysis = () => {
     if (typeof directMsg !== 'string') {
       setMessage('');
     }
-    setChatHistory(prev => [...prev, { role: 'user', text: userMsg }]);
     setChatLoading(true);
 
+    let activeChatId = currentChatId;
+    let existingMessages = [];
+
+    // 1. Create chat session if none selected
+    if (!activeChatId) {
+      try {
+        const titleText = userMsg.slice(0, 30) + (userMsg.length > 30 ? '...' : '');
+        const createRes = await API.post('/ai/chats', {
+          title: titleText,
+          context_doc_id: contextDocId,
+          context_folder_id: contextFolderId
+        });
+        activeChatId = createRes.data.id;
+        existingMessages = typeof createRes.data.messages === 'string' ? JSON.parse(createRes.data.messages) : createRes.data.messages;
+        setChats(prev => [createRes.data, ...prev]);
+        setCurrentChatId(activeChatId);
+      } catch (err) {
+        console.error('Failed to create chat:', err);
+        toast.error('Lỗi khởi tạo chat');
+        setChatLoading(false);
+        return;
+      }
+    } else {
+      const chatObj = chats.find(c => c.id === activeChatId);
+      if (chatObj) {
+        existingMessages = typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages;
+      }
+    }
+
+    // 2. Append User message
+    const updatedMessagesWithUser = [...existingMessages, { role: 'user', text: userMsg }];
+    setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: updatedMessagesWithUser } : c));
+
     try {
-      // Add an empty AI placeholder message to chat history that we will stream text into
-      setChatHistory(prev => [...prev, { role: 'ai', text: '' }]);
+      // Add empty AI placeholder message to stream text into
+      const localUpdatedMsgs = [...updatedMessagesWithUser, { role: 'ai', text: '' }];
+      setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: localUpdatedMsgs } : c));
 
       const user = JSON.parse(localStorage.getItem('user'));
       const headers = {
@@ -212,7 +359,6 @@ const AiAnalysis = () => {
       let done = false;
       let textBuffer = '';
 
-      // Hide initial chat loader as stream begins
       setChatLoading(false);
 
       while (!done) {
@@ -222,33 +368,35 @@ const AiAnalysis = () => {
           const chunk = decoder.decode(value, { stream: !done });
           textBuffer += chunk;
           
-          setChatHistory(prev => {
-            const updated = [...prev];
-            if (updated.length > 0 && updated[updated.length - 1].role === 'ai') {
-              updated[updated.length - 1] = { role: 'ai', text: textBuffer };
-            }
-            return updated;
-          });
+          setChats(prev => prev.map(c => c.id === activeChatId ? {
+            ...c,
+            messages: [...updatedMessagesWithUser, { role: 'ai', text: textBuffer }]
+          } : c));
         }
       }
+
+      // 4. Persist to DB on success
+      const finalMessages = [...updatedMessagesWithUser, { role: 'ai', text: textBuffer }];
+      await API.put(`/ai/chats/${activeChatId}`, { messages: finalMessages });
+      setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalMessages } : c));
     } catch (err) {
       console.error('Streaming Chat Error:', err);
       setChatLoading(false);
-      setChatHistory(prev => {
-        const updated = [...prev];
-        // If the last message is the empty AI placeholder, set it to the error message
-        if (updated.length > 0 && updated[updated.length - 1].role === 'ai') {
-          const lastMsg = updated[updated.length - 1];
-          if (!lastMsg.text || lastMsg.text.trim() === '') {
-            updated[updated.length - 1] = { role: 'ai', text: 'Xin lỗi, kết nối API bị lỗi. Vui lòng thử lại.' };
-          } else {
-            updated[updated.length - 1] = { role: 'ai', text: lastMsg.text + '\n\n[Lỗi kết nối API hoặc hết lượt hạn mức free]' };
-          }
-        } else {
-          updated.push({ role: 'ai', text: 'Xin lỗi, kết nối API bị lỗi. Vui lòng thử lại.' });
-        }
-        return updated;
-      });
+      
+      const chatObj = chats.find(c => c.id === activeChatId);
+      const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
+      const lastMsg = currentMsgs[currentMsgs.length - 1];
+      let errorText = 'Xin lỗi, kết nối API bị lỗi hoặc tài khoản của bạn hết credits AI. Vui lòng nâng cấp PRO!';
+      if (lastMsg && lastMsg.role === 'ai') {
+        errorText = lastMsg.text + '\n\n[Lỗi kết nối API hoặc hết lượt hạn mức free]';
+      }
+      
+      const finalErrorMessages = lastMsg && lastMsg.role === 'ai'
+        ? [...currentMsgs.slice(0, -1), { role: 'ai', text: errorText }]
+        : [...currentMsgs, { role: 'ai', text: errorText }];
+        
+      setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalErrorMessages } : c));
+      API.put(`/ai/chats/${activeChatId}`, { messages: finalErrorMessages }).catch(console.error);
     }
   };
 
@@ -259,11 +407,69 @@ const AiAnalysis = () => {
     }
     let prompt = cmd.prompt;
     if (contextFolderId) {
-      // Intelligently rewrite folder prompt context
       prompt = prompt.replaceAll('tài liệu này', 'các tài liệu trong thư mục này');
     }
     handleSendChat(prompt);
   };
+
+  const handleCreateNewChat = () => {
+    setCurrentChatId(null);
+    setContextDocId(null);
+    setContextFolderId(null);
+    toast.success('Bắt đầu cuộc trò chuyện mới!');
+  };
+
+  const handleSelectChat = (chat) => {
+    setCurrentChatId(chat.id);
+    setContextDocId(chat.context_doc_id);
+    setContextFolderId(chat.context_folder_id);
+  };
+
+  const handleStartRename = (e, chat) => {
+    e.stopPropagation();
+    setRenamingChatId(chat.id);
+    setRenameTitle(chat.title);
+  };
+
+  const handleSaveRename = async (chatId) => {
+    if (!renameTitle.trim()) return;
+    try {
+      const res = await API.put(`/ai/chats/${chatId}`, { title: renameTitle.trim() });
+      setChats(prev => prev.map(c => c.id === chatId ? { ...c, title: res.data.title } : c));
+      setRenamingChatId(null);
+      toast.success('Đã đổi tên cuộc trò chuyện!');
+    } catch (err) {
+      toast.error('Lỗi khi đổi tên cuộc trò chuyện');
+    }
+  };
+
+  const handleDeleteChat = async (e, chatId) => {
+    e.stopPropagation();
+    if (!window.confirm('Bạn có chắc muốn xóa cuộc trò chuyện này?')) return;
+    try {
+      await API.delete(`/ai/chats/${chatId}`);
+      setChats(prev => prev.filter(c => c.id !== chatId));
+      if (currentChatId === chatId) {
+        setCurrentChatId(null);
+        setContextDocId(null);
+        setContextFolderId(null);
+      }
+      toast.success('Đã xóa cuộc trò chuyện');
+    } catch (err) {
+      toast.error('Lỗi khi xóa cuộc trò chuyện');
+    }
+  };
+
+  // Extract display messages
+  const activeChat = chats.find(c => c.id === currentChatId);
+  const displayMessages = activeChat 
+    ? (typeof activeChat.messages === 'string' ? JSON.parse(activeChat.messages) : activeChat.messages)
+    : [
+        {
+          role: 'ai',
+          text: 'Xin chào! Tôi là AI trợ lý phân tích tài liệu. Bạn có thể:\n- Chọn hoặc tải lên tài liệu / thư mục để phân tích\n- Hỏi về nội dung tài liệu / thư mục\n- Yêu cầu tóm tắt nội dung\n- Tìm kiếm thông tin cốt lõi'
+        }
+      ];
 
   return (
     <div className="max-w-[1600px] w-full mx-auto flex flex-col h-full">
@@ -271,13 +477,89 @@ const AiAnalysis = () => {
       <p className="text-text-secondary text-sm mb-6">Chat với AI để phân tích, phân loại và tìm kiếm tài liệu</p>
 
       <div className="flex flex-col lg:flex-row gap-6 items-stretch flex-1">
+        
+        {/* LEFT COLUMN: Chat History List */}
+        <div className="w-full lg:w-[260px] shrink-0 bg-surface border border-border rounded-2xl p-4 flex flex-col h-[calc(100vh-230px)] min-h-[700px] shadow-[0_2px_15px_rgba(0,0,0,0.02)] overflow-hidden">
+          <button 
+            onClick={handleCreateNewChat}
+            className="w-full bg-primary hover:bg-primary-dark text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition mb-4 shadow-sm cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Trò chuyện mới</span>
+          </button>
+          
+          <div className="border-b border-border/50 pb-2 mb-3">
+            <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Trò chuyện gần đây</span>
+          </div>
 
-        {/* LEFT COLUMN: Main Chat Card */}
+          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+            {chats.map(chat => {
+              const isSelected = chat.id === currentChatId;
+              const isRenaming = chat.id === renamingChatId;
+              return (
+                <div
+                  key={chat.id}
+                  onClick={() => !isRenaming && handleSelectChat(chat)}
+                  className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all text-xs cursor-pointer ${
+                    isSelected 
+                      ? 'border-primary bg-primary/5 text-primary' 
+                      : 'border-border bg-background hover:bg-black/5 text-text-primary dark:bg-slate-800/40 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 overflow-hidden mr-2 flex-1">
+                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-primary' : 'text-text-secondary'}`} />
+                    {isRenaming ? (
+                      <input
+                        type="text"
+                        value={renameTitle}
+                        onChange={(e) => setRenameTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveRename(chat.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-surface border border-border rounded px-1.5 py-0.5 text-xs text-text-primary font-semibold w-full focus:outline-none focus:border-primary"
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="truncate font-semibold flex-1 leading-snug">{chat.title}</span>
+                    )}
+                  </div>
+                  
+                  {isRenaming ? (
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <button onClick={(e) => { e.stopPropagation(); handleSaveRename(chat.id); }} className="text-emerald-500 hover:text-emerald-600 p-0.5">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setRenamingChatId(null); }} className="text-red-500 hover:text-red-600 p-0.5">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 shrink-0 ml-1.5 transition-opacity">
+                      <button onClick={(e) => handleStartRename(e, chat)} className="text-text-secondary hover:text-primary p-0.5" title="Đổi tên">
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={(e) => handleDeleteChat(e, chat.id)} className="text-text-secondary hover:text-red-500 p-0.5" title="Xóa">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {chats.length === 0 && (
+              <div className="text-center text-text-secondary text-xs italic py-8">
+                Chưa có lịch sử trò chuyện.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CENTER COLUMN: Main Chat Card */}
         <div className="flex-1 bg-surface border border-border rounded-2xl flex flex-col p-6 shadow-[0_2px_15px_rgba(0,0,0,0.02)] h-[calc(100vh-230px)] min-h-[700px]">
 
           {/* Chat Area */}
           <div ref={chatContainerRef} className="flex-1 mb-6 flex flex-col pt-4 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-            {chatHistory.map((chat, idx) => (
+            {displayMessages.map((chat, idx) => (
               <div key={idx} className={`flex flex-col ${chat.role === 'user' ? 'items-end' : 'items-start'}`}>
                 {chat.role === 'ai' && (
                   <div className="flex items-center space-x-2 mb-1 pl-4">
@@ -375,7 +657,7 @@ const AiAnalysis = () => {
             >
               <Upload className="w-6 h-6 text-text-secondary mb-2" />
               <p className="text-sm font-semibold text-text-primary mb-1">Kéo thả tài liệu vào đây</p>
-              <p className="text-xs text-text-secondary mb-4">PDF, DOCX, XLSX, PPTX, HTML, TXT (Tối đa 20MB)</p>
+              <p className="text-xs text-text-secondary mb-4">Hỗ trợ PDF, DOCX, XLSX, PPTX, PPT, XLS, CSV, MP4, MOV, AVI, HTML, TXT (Tối đa 100MB)</p>
               <button className="bg-surface border border-border px-4 py-2 text-xs font-semibold rounded-lg hover:bg-black/5 transition">
                 Chọn tệp
               </button>
@@ -385,7 +667,7 @@ const AiAnalysis = () => {
                 className="hidden"
                 ref={fileInputRef}
                 onChange={(e) => setFile(e.target.files[0])}
-                accept=".pdf,.docx,.xlsx,.pptx,.html,.htm,.txt,.png,.jpg,.jpeg"
+                accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.html,.htm,.txt,.png,.jpg,.jpeg,.mp4,.mov,.avi,.mkv"
               />
             </div>
 
@@ -424,7 +706,7 @@ const AiAnalysis = () => {
                   </div>
                 )}
 
-                <button onClick={handleUpload} disabled={loading} className="w-full bg-primary hover:bg-primary-dark text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center transition-colors">
+                <button onClick={handleUpload} disabled={loading} className="w-full bg-primary hover:bg-primary-dark text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center transition-colors animate-pulse">
                   {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                   {loading ? 'Đang tải & Phân tích...' : 'Xác nhận tải lên'}
                 </button>
@@ -433,8 +715,8 @@ const AiAnalysis = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: AI Studio Commands Panel (No Chat Box) */}
-        <div className="w-full lg:w-[320px] shrink-0 bg-surface border border-border rounded-2xl p-6 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col h-[calc(100vh-230px)] min-h-[700px] overflow-hidden">
+        {/* RIGHT COLUMN: AI Studio Commands Panel */}
+        <div className="w-full lg:w-[280px] shrink-0 bg-surface border border-border rounded-2xl p-6 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col h-[calc(100vh-230px)] min-h-[700px] overflow-hidden">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-border shrink-0">
             <div className="flex items-center space-x-2">
               <Sparkles className="w-5 h-5 text-primary animate-pulse" />

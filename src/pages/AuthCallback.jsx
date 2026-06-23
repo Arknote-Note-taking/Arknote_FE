@@ -26,7 +26,11 @@ const AuthCallback = () => {
             navigate('/set-password', { state: { tempUser: res.data } });
           } else {
             login(res.data);
-            navigate('/');
+            if (res.data.role === 'admin') {
+              navigate('/dashboard');
+            } else {
+              navigate('/');
+            }
           }
         } else {
           navigate('/login');

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import API from '../services/api';
 import { SocketContext } from '../context/SocketContext';
-import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap, Pin } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
 import UploadModal from '../components/UploadModal';
@@ -44,6 +44,8 @@ const DocumentList = () => {
   const { socket } = useContext(SocketContext);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [highlightedId, setHighlightedId] = useState(null);
 
   const [filters, setFilters] = useState(['Tất cả', 'Nhân sự', 'Hành chính', 'Pháp luật', 'Học tập']);
 
@@ -58,6 +60,10 @@ const DocumentList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
 
+  // Pagination for Deleted Documents
+  const [deletedCurrentPage, setDeletedCurrentPage] = useState(1);
+  const deletedItemsPerPage = 4;
+
   // Bulk Delete Integration
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState([]);
@@ -65,14 +71,14 @@ const DocumentList = () => {
   // Deleted Documents (Admin Only)
   const [deletedDocs, setDeletedDocs] = useState([]);
 
-  const fetchDeletedDocs = async () => {
+  const fetchDeletedDocs = useCallback(async () => {
     try {
       const res = await API.get('/documents/deleted');
       setDeletedDocs(res.data);
     } catch (err) {
       console.error("Lỗi tải danh mục tài liệu đã xóa", err);
     }
-  };
+  }, []);
 
   const handleRestoreDoc = (docId, docTitle) => {
     triggerConfirm(
@@ -86,42 +92,67 @@ const DocumentList = () => {
           setDeletedDocs(prev => prev.filter(d => d.id !== docId));
           fetchDocuments(); // Refresh active list
         } catch (err) {
-          toast.error('Lỗi khi khôi phục tài liệu!');
+          toast.error(err.response?.data?.error || 'Lỗi khi khôi phục tài liệu!');
         }
       }
     );
   };
 
+  const handleRequestRestoreDoc = (docId, docTitle) => {
+    triggerConfirm(
+      'Yêu cầu khôi phục tài liệu?',
+      `Bạn có chắc chắn muốn gửi yêu cầu khôi phục tài liệu "${docTitle || 'này'}" tới Admin không?`,
+      'Gửi yêu cầu',
+      async () => {
+        try {
+          await API.post(`/documents/${docId}/request-restore`);
+          toast.success('Đã gửi yêu cầu khôi phục tài liệu thành công!');
+        } catch (err) {
+          toast.error(err.response?.data?.error || 'Lỗi khi gửi yêu cầu khôi phục!');
+        }
+      }
+    );
+  };
+
+  const handleTogglePin = async (docId, isPinned) => {
+    try {
+      await API.put(`/documents/${docId}`, { is_pinned: !isPinned });
+      toast.success(isPinned ? 'Đã bỏ ghim tài liệu!' : 'Đã ghim tài liệu lên đầu!');
+      setDocuments(prev => prev.map(d => d.id === docId ? { ...d, is_pinned: !isPinned } : d));
+    } catch (err) {
+      toast.error('Lỗi khi thay đổi trạng thái ghim!');
+    }
+  };
+
   useEffect(() => {
     setCurrentPage(1);
+    setDeletedCurrentPage(1);
     setIsSelectMode(false);
     setSelectedDocIds([]);
   }, [searchQuery, activeFilter, viewMode]);
 
-  const fetchDocuments = async () => {
+  const fetchDocuments = useCallback(async () => {
     try {
       const res = await API.get('/documents');
       setDocuments(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
-  const fetchFolders = async () => {
+  const fetchFolders = useCallback(async () => {
     try {
       const res = await API.get('/documents/folders');
       setFolders(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchDocuments();
     fetchFolders();
-    if (user?.role === 'admin') {
-      fetchDeletedDocs();
-    }
+    fetchDeletedDocs();
   }, [user]);
 
   useEffect(() => {
@@ -140,7 +171,11 @@ const DocumentList = () => {
   useEffect(() => {
     if (!socket) return;
     const handleCreated = (newDoc) => {
-      setDocuments(docs => [newDoc, ...docs]);
+      setDocuments(docs => {
+        if (docs.some(d => d.id === newDoc.id)) return docs;
+        return [newDoc, ...docs];
+      });
+      fetchDeletedDocs();
       fetchFolders(); // Sync folders counts
     };
     const handleUpdated = (updatedDoc) => {
@@ -149,6 +184,7 @@ const DocumentList = () => {
     };
     const handleDeleted = ({ id }) => {
       setDocuments(docs => docs.filter(d => d.id !== id));
+      fetchDeletedDocs();
       fetchFolders();
     };
 
@@ -161,7 +197,7 @@ const DocumentList = () => {
       socket.off('document_updated', handleUpdated);
       socket.off('document_deleted', handleDeleted);
     };
-  }, [socket]);
+  }, [socket, fetchDeletedDocs, fetchFolders]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -185,7 +221,29 @@ const DocumentList = () => {
       async () => {
         try {
           await API.delete(`/documents/${id}`);
-          toast.success("Đã xóa tài liệu thành công!");
+          if (user?.role !== 'admin') {
+            toast((t) => (
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs">Đã xóa tài liệu thành công!</span>
+                <button
+                  onClick={async () => {
+                    toast.dismiss(t.id);
+                    try {
+                      await API.post(`/documents/${id}/request-restore`);
+                      toast.success("Đã gửi yêu cầu khôi phục tới Admin!");
+                    } catch (err) {
+                      toast.error("Gửi yêu cầu thất bại!");
+                    }
+                  }}
+                  className="bg-primary hover:bg-primary-dark text-white text-[10px] font-bold px-2 py-1 rounded transition-colors cursor-pointer"
+                >
+                  Yêu cầu khôi phục
+                </button>
+              </div>
+            ), { duration: 6000 });
+          } else {
+            toast.success("Đã xóa tài liệu thành công!");
+          }
         } catch (err) {
           toast.error(err.response?.data?.error || "Xóa thất bại");
         }
@@ -271,9 +329,17 @@ const DocumentList = () => {
     return f.name?.toLowerCase().includes(query);
   });
 
+  const sortedDocs = [...filteredDocs].sort((a, b) => {
+    // 1. Pinned documents first
+    if (a.is_pinned && !b.is_pinned) return -1;
+    if (!a.is_pinned && b.is_pinned) return 1;
+    // 2. Otherwise sort by created_at descending
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedDocs = filteredDocs.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(filteredDocs.length / itemsPerPage);
+  const paginatedDocs = sortedDocs.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(sortedDocs.length / itemsPerPage);
 
   useEffect(() => {
     const maxPage = Math.max(1, totalPages);
@@ -290,6 +356,72 @@ const DocumentList = () => {
     const ownerMatch = doc.users?.email?.toLowerCase?.().includes(query) || doc.users?.name?.toLowerCase?.().includes(query);
     return titleMatch || summaryMatch || ownerMatch;
   });
+
+  const deletedStartIndex = (deletedCurrentPage - 1) * deletedItemsPerPage;
+  const paginatedDeletedDocs = filteredDeletedDocs.slice(deletedStartIndex, deletedStartIndex + deletedItemsPerPage);
+  const deletedTotalPages = Math.ceil(filteredDeletedDocs.length / deletedItemsPerPage);
+
+  useEffect(() => {
+    const maxPage = Math.max(1, deletedTotalPages);
+    if (deletedCurrentPage > maxPage) {
+      setDeletedCurrentPage(maxPage);
+    }
+  }, [deletedTotalPages, deletedCurrentPage]);
+
+  useEffect(() => {
+    if (location.state && location.state.viewMode) {
+      const targetMode = location.state.viewMode;
+      const highlightId = location.state.highlightDocId;
+      
+      setViewMode(targetMode);
+
+      if (highlightId) {
+        let found = false;
+        
+        if (targetMode === 'deleted') {
+          if (deletedDocs && deletedDocs.length > 0) {
+            const index = filteredDeletedDocs.findIndex(d => d.id === highlightId);
+            if (index !== -1) {
+              const page = Math.floor(index / deletedItemsPerPage) + 1;
+              setDeletedCurrentPage(page);
+              setHighlightedId(highlightId);
+              found = true;
+            } else {
+              const rawIndex = deletedDocs.findIndex(d => d.id === highlightId);
+              if (rawIndex !== -1) {
+                setSearchQuery('');
+              }
+            }
+          }
+        } else {
+          if (documents && documents.length > 0) {
+            const index = sortedDocs.findIndex(d => d.id === highlightId);
+            if (index !== -1) {
+              const page = Math.floor(index / itemsPerPage) + 1;
+              setCurrentPage(page);
+              setHighlightedId(highlightId);
+              found = true;
+            } else {
+              const rawIndex = documents.findIndex(d => d.id === highlightId);
+              if (rawIndex !== -1) {
+                setSearchQuery('');
+                setActiveFilter('Tất cả');
+              }
+            }
+          }
+        }
+
+        if (found) {
+          const timer = setTimeout(() => {
+            setHighlightedId(null);
+          }, 4000);
+
+          navigate(location.pathname, { replace: true, state: {} });
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [location.state, documents, deletedDocs, filteredDocs.length, filteredDeletedDocs.length]);
 
   return (
     <div className="max-w-[1600px] w-full mx-auto relative">
@@ -330,20 +462,18 @@ const DocumentList = () => {
             </div>
           </button>
         )}
-        {user?.role === 'admin' && (
-          <button
-            onClick={() => setViewMode('deleted')}
-            className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'deleted'
-                ? 'border-b-2 border-primary text-primary font-bold'
-                : 'text-text-secondary hover:text-text-primary'
-              }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Trash2 className="w-4 h-4" />
-              <span>Tài liệu đã xóa ({deletedDocs.length})</span>
-            </div>
-          </button>
-        )}
+        <button
+          onClick={() => setViewMode('deleted')}
+          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'deleted'
+              ? 'border-b-2 border-primary text-primary font-bold'
+              : 'text-text-secondary hover:text-text-primary'
+            }`}
+        >
+          <div className="flex items-center space-x-2">
+            <Trash2 className="w-4 h-4" />
+            <span>{user?.role === 'admin' ? `Tài liệu đã xóa (${deletedDocs.length})` : `Yêu cầu khôi phục (${deletedDocs.length})`}</span>
+          </div>
+        </button>
       </div>
 
       {/* 2.5. Upload Limit Indicator for Non-Pro Users */}
@@ -471,10 +601,15 @@ const DocumentList = () => {
           {paginatedDocs.map(doc => (
             <div
               key={doc.id}
-              className={`bg-surface border p-5 rounded-xl hover:shadow-md transition-all cursor-pointer flex justify-between items-start ${selectedDocIds.includes(doc.id)
+              className={`bg-surface border p-5 rounded-xl transition-all flex justify-between items-start ${
+                isSelectMode || user?.role !== 'admin' ? 'hover:shadow-md cursor-pointer' : 'cursor-default'
+              } ${
+                doc.id === highlightedId
+                  ? 'highlight-row-active'
+                  : selectedDocIds.includes(doc.id)
                   ? 'border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm'
                   : 'border-border'
-                }`}
+              }`}
               onClick={() => {
                 if (isSelectMode) {
                   setSelectedDocIds(prev =>
@@ -482,8 +617,10 @@ const DocumentList = () => {
                       ? prev.filter(id => id !== doc.id)
                       : [...prev, doc.id]
                   );
-                } else {
+                } else if (user?.role !== 'admin') {
                   navigate(`/documents/${doc.id}`);
+                } else {
+                  toast.error('Admin chỉ quản lý tài liệu, không thể xem chi tiết nội dung tài liệu!');
                 }
               }}
             >
@@ -499,7 +636,10 @@ const DocumentList = () => {
               )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-3 mb-2">
-                  <h3 className="font-bold text-text-primary text-base">{doc.title}</h3>
+                  <h3 className="font-bold text-text-primary text-base flex items-center gap-1.5">
+                    {doc.is_pinned && <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />}
+                    <span>{doc.title}</span>
+                  </h3>
                   <span className="text-[10px] font-semibold text-[#10B981] bg-[#DEF7EC] dark:bg-[#DEF7EC]/10 border border-[#10B981]/20 px-2 py-0.5 rounded text-center leading-none">
                     Đã xử lý
                   </span>
@@ -526,16 +666,34 @@ const DocumentList = () => {
               <div className="text-right flex flex-col items-end justify-between h-full">
                 <div className="flex items-center space-x-3 mb-1">
                   <p className="text-text-secondary text-xs">{new Date(doc.created_at).toISOString().split('T')[0]}</p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/documents/${doc.id}`, { state: { edit: true } });
-                    }}
-                    className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer"
-                    title="Chỉnh sửa tài liệu"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
+                  {user?.role !== 'admin' && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePin(doc.id, doc.is_pinned);
+                        }}
+                        className={`transition-colors p-1 cursor-pointer rounded-lg hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center ${
+                          doc.is_pinned 
+                            ? 'text-amber-500 hover:text-amber-600' 
+                            : 'text-text-secondary hover:text-primary'
+                        }`}
+                        title={doc.is_pinned ? 'Bỏ ghim tài liệu' : 'Ghim tài liệu lên đầu'}
+                      >
+                        <Pin className={`w-4 h-4 ${doc.is_pinned ? 'fill-amber-500' : ''}`} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/documents/${doc.id}`, { state: { edit: true } });
+                        }}
+                        className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer"
+                        title="Chỉnh sửa tài liệu"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={(e) => initiateDelete(e, doc.id)}
                     className="text-text-secondary hover:text-red-500 transition-colors p-1 cursor-pointer"
@@ -642,10 +800,12 @@ const DocumentList = () => {
       {/* DELETED DOCUMENTS VIEW (ADMIN ONLY) */}
       {viewMode === 'deleted' && (
         <div className="space-y-4">
-          {filteredDeletedDocs.map(doc => (
+          {paginatedDeletedDocs.map(doc => (
             <div
               key={doc.id}
-              className="bg-surface border border-border p-5 rounded-xl flex justify-between items-start"
+              className={`bg-surface border p-5 rounded-xl flex justify-between items-start transition-all ${
+                doc.id === highlightedId ? 'highlight-row-active' : 'border-border'
+              }`}
             >
               <div className="flex-1 min-w-0 pr-4">
                 <div className="flex items-center space-x-3 mb-2">
@@ -658,26 +818,78 @@ const DocumentList = () => {
                   {doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}
                 </p>
                 <div className="flex items-center space-x-3 text-xs text-text-secondary">
-                  <span>Chủ sở hữu: <strong>{doc.users?.name || doc.users?.email || 'Hệ thống'}</strong> ({doc.users?.email || 'N/A'})</span>
-                  <span>•</span>
+                  {user?.role === 'admin' && (
+                    <>
+                      <span>Chủ sở hữu: <strong>{doc.users?.name || doc.users?.email || 'Hệ thống'}</strong> ({doc.users?.email || 'N/A'})</span>
+                      <span>•</span>
+                    </>
+                  )}
                   <span>Ngày tạo: {new Date(doc.created_at).toLocaleDateString('vi-VN')}</span>
                 </div>
               </div>
               <div className="text-right flex flex-col justify-center items-end shrink-0 self-center">
-                <button
-                  onClick={() => handleRestoreDoc(doc.id, doc.title)}
-                  className="flex items-center space-x-1.5 text-primary hover:bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
-                  title="Khôi phục tài liệu"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Khôi phục</span>
-                </button>
+                {user?.role === 'admin' ? (
+                  <button
+                    onClick={() => handleRestoreDoc(doc.id, doc.title)}
+                    className="flex items-center space-x-1.5 text-primary hover:bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
+                    title="Khôi phục tài liệu"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Khôi phục</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleRequestRestoreDoc(doc.id, doc.title)}
+                    className="flex items-center space-x-1.5 text-primary hover:bg-primary/10 border border-primary/20 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
+                    title="Yêu cầu khôi phục tài liệu"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Yêu cầu khôi phục</span>
+                  </button>
+                )}
               </div>
             </div>
           ))}
 
           {filteredDeletedDocs.length === 0 && (
             <p className="text-text-secondary text-sm mt-8 text-center italic">Không tìm thấy tài liệu đã xóa phù hợp.</p>
+          )}
+
+          {/* Pagination Controls for Deleted Docs */}
+          {deletedTotalPages > 1 && (
+            <div className="flex items-center justify-center space-x-2 mt-8 py-2">
+              <button
+                onClick={() => setDeletedCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={deletedCurrentPage === 1}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                Trước
+              </button>
+
+              {[...Array(deletedTotalPages)].map((_, index) => {
+                const pageNum = index + 1;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setDeletedCurrentPage(pageNum)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${deletedCurrentPage === pageNum
+                        ? 'bg-primary text-white shadow-sm border border-primary'
+                        : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setDeletedCurrentPage(prev => Math.min(prev + 1, deletedTotalPages))}
+                disabled={deletedCurrentPage === deletedTotalPages}
+                className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                Sau
+              </button>
+            </div>
           )}
         </div>
       )}

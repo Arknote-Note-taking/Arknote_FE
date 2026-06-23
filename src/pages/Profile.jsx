@@ -42,6 +42,7 @@ const Profile = () => {
         const res = await API.get('/users/profile');
         setProfile(res.data);
         setNewName(res.data.name);
+        login(res.data);
       } catch (error) {
         toast.error("Không thể tải thông tin hồ sơ");
       } finally {
@@ -138,6 +139,18 @@ const Profile = () => {
       toast.error(err.response?.data?.error || 'Mã OTP không hợp lệ hoặc có lỗi xảy ra');
     } finally {
       setPassLoading(false);
+    }
+  };
+
+
+  const handleRequestDeleteAccount = async () => {
+    const confirm = window.confirm("Bạn có chắc chắn muốn gửi yêu cầu xóa tài khoản đến Admin không?");
+    if (!confirm) return;
+    try {
+      await API.post('/users/request-delete');
+      toast.success("Đã gửi yêu cầu xóa tài khoản tới Admin thành công!");
+    } catch (err) {
+      toast.error("Không thể gửi yêu cầu xóa tài khoản!");
     }
   };
 
@@ -246,7 +259,7 @@ const Profile = () => {
               </div>
 
               {/* Account Stats / Metadata Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              <div className={`grid grid-cols-1 ${profile?.role === 'admin' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'} gap-4 pt-2`}>
                 <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
                   <div className="p-2 bg-text-secondary/5 rounded-lg text-text-secondary">
                     <Shield className="w-5 h-5" />
@@ -256,33 +269,35 @@ const Profile = () => {
                     <p className="text-sm font-bold text-text-primary capitalize">{profile.role}</p>
                   </div>
                 </div>
-                <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
-                  <div className="p-2 bg-primary/10 rounded-lg text-primary">
-                    <Zap className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-text-secondary tracking-tighter mb-1">Gói tài khoản</p>
-                    <div className="flex items-center space-x-2">
-                      {profile?.is_pro ? (
-                        <span className="text-[10px] bg-amber-500 text-white font-black px-2.5 py-0.5 rounded-md shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
-                          PRO
-                        </span>
-                      ) : (
-                        <span className="text-[10px] bg-slate-500 text-white font-black px-2.5 py-0.5 rounded-md shadow-md shadow-slate-500/25 uppercase tracking-wider">
-                          FREE
-                        </span>
-                      )}
-                      {!profile?.is_pro && (
-                        <button
-                          type="button"
-                          onClick={() => navigate('/#pricing')}
-                          className="text-[10px] text-primary hover:text-primary-dark hover:underline font-extrabold cursor-pointer"
-                        >
-                        </button>
-                      )}
+                {profile?.role !== 'admin' && (
+                  <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
+                    <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                      <Zap className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-text-secondary tracking-tighter mb-1">Gói tài khoản</p>
+                      <div className="flex items-center space-x-2">
+                        {profile?.is_pro ? (
+                          <span className="text-[10px] bg-amber-500 text-white font-black px-2.5 py-0.5 rounded-md shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
+                            PRO
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-slate-500 text-white font-black px-2.5 py-0.5 rounded-md shadow-md shadow-slate-500/25 uppercase tracking-wider">
+                            FREE
+                          </span>
+                        )}
+                        {!profile?.is_pro && (
+                          <button
+                            type="button"
+                            onClick={() => navigate('//#pricing')}
+                            className="text-[10px] text-primary hover:text-primary-dark hover:underline font-extrabold cursor-pointer"
+                          >
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
                 <div className="p-4 bg-background border border-border rounded-2xl flex items-center space-x-4">
                   <div className="p-2 bg-text-secondary/5 rounded-lg text-text-secondary">
                     <Calendar className="w-5 h-5" />
@@ -456,20 +471,25 @@ const Profile = () => {
 
 
 
-          <div className="bg-[#FEF2F2] border border-[#FEE2E2] rounded-3xl p-6 flex items-center justify-between group">
-            <div className="flex items-center space-x-4">
-              <div className="bg-[#EF4444]/10 p-3 rounded-2xl text-[#EF4444]">
-                <Shield className="w-6 h-6" />
+          {profile?.role !== 'admin' && (
+            <div className="bg-[#FEF2F2] border border-[#FEE2E2] rounded-3xl p-6 flex items-center justify-between group">
+              <div className="flex items-center space-x-4">
+                <div className="bg-[#EF4444]/10 p-3 rounded-2xl text-[#EF4444]">
+                  <Shield className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-[#991B1B]">Khu vực rủi ro</h4>
+                  <p className="text-xs text-[#B91C1C]">Các hành động tại đây không thể hoàn tác.</p>
+                </div>
               </div>
-              <div>
-                <h4 className="font-bold text-[#991B1B]">Khu vực rủi ro</h4>
-                <p className="text-xs text-[#B91C1C]">Các hành động tại đây không thể hoàn tác.</p>
-              </div>
+              <button 
+                onClick={handleRequestDeleteAccount}
+                className="text-[11px] font-bold text-[#EF4444] border border-[#EF4444]/20 px-4 py-2 rounded-xl hover:bg-[#EF4444] hover:text-white transition-all uppercase tracking-wider"
+              >
+                Yêu cầu xóa tài khoản
+              </button>
             </div>
-            <button className="text-[11px] font-bold text-[#EF4444] border border-[#EF4444]/20 px-4 py-2 rounded-xl hover:bg-[#EF4444] hover:text-white transition-all uppercase tracking-wider">
-              Yêu cầu xóa tài khoản
-            </button>
-          </div>
+          )}
         </div>
       </div>
     </div>

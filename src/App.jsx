@@ -31,6 +31,7 @@ import UserManagement from './pages/UserManagement';
 import Profile from './pages/Profile';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
+import OnboardingModal from './components/OnboardingModal';
 
 const PrivateRoute = ({ children }) => {
   const { user } = useContext(AuthContext);
@@ -57,6 +58,7 @@ const AppContent = () => {
   return (
     <Router>
       <ScrollToTop />
+      <OnboardingModal />
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
@@ -66,7 +68,7 @@ const AppContent = () => {
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={user && user.role === 'admin' ? <Navigate to="/dashboard" /> : <LandingPage />} />
         <Route path="/dashboard" element={<PrivateRoute><Overview /></PrivateRoute>} />
         <Route path="/documents" element={<PrivateRoute><DocumentList /></PrivateRoute>} />
         <Route path="/documents/:id" element={<PrivateRoute><DocumentDetail /></PrivateRoute>} />
@@ -84,7 +86,7 @@ const AppContent = () => {
 function App() {
   return (
     <AuthProvider>
-      <Toaster position="top-right" toastOptions={{
+      <Toaster position="bottom-right" toastOptions={{
          style: {
            background: '#333',
            color: '#fff',

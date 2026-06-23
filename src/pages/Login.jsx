@@ -19,7 +19,11 @@ const Login = () => {
     try {
       const res = await API.post('/auth/login', { email, password });
       login(res.data);
-      navigate('/');
+      if (res.data.role === 'admin') {
+        navigate('/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       const errorMsg = err.response?.data?.error || '';
       // Supabase returns 'Invalid login credentials' for wrong email/password

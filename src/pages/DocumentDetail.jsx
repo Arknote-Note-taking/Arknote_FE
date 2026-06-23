@@ -119,6 +119,13 @@ const DocumentDetail = () => {
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
+    if (user?.role === 'admin') {
+      toast.error('Admin chỉ quản lý tài liệu, không thể xem chi tiết nội dung tài liệu!');
+      navigate('/documents');
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
     const fetchDocAndRelated = async () => {
       setLoading(true);
       try {
