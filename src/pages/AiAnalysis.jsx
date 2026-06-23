@@ -16,10 +16,76 @@ import {
   Edit2,
   Trash2,
   Check,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  FileVideo,
+  FileSpreadsheet,
+  Presentation,
+  FileText,
+  Image,
+  File
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import DocumentSelectModal from '../components/DocumentSelectModal';
 import FolderSelectModal from '../components/FolderSelectModal';
+
+// Preprocess AI text: convert common non-markdown patterns to proper markdown
+const preprocessMarkdown = (text) => {
+  if (!text) return '';
+  return text
+    // Convert '-> text' or '→ text' bullet style to markdown list
+    .replace(/^(-?>|→)\s+/gm, '- ')
+    // Convert '+ text' at start of line to list item
+    .replace(/^\+\s+/gm, '- ')
+    // Ensure numbered items like "1) text" also render as ordered list
+    .replace(/^(\d+)\)\s+/gm, '$1. ');
+};
+
+// Markdown renderer for AI responses with beautiful, consistent typography
+const MarkdownRenderer = ({ content }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    components={{
+      // Paragraphs
+      p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+      // Bold
+      strong: ({ children }) => <strong className="font-bold text-text-primary">{children}</strong>,
+      // Italic
+      em: ({ children }) => <em className="italic opacity-90">{children}</em>,
+      // Numbered list
+      ol: ({ children }) => <ol className="list-decimal list-outside ml-4 space-y-1.5 my-2">{children}</ol>,
+      // Bullet list
+      ul: ({ children }) => <ul className="list-none ml-0 space-y-1.5 my-2">{children}</ul>,
+      // List item — react-markdown passes 'ordered' prop to li
+      li: ({ children, ordered }) =>
+        ordered
+          ? <li className="pl-1 leading-relaxed">{children}</li>
+          : <li className="flex items-start space-x-2 leading-relaxed"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/70 shrink-0"></span><span className="flex-1">{children}</span></li>,
+      // Headings
+      h1: ({ children }) => <h1 className="text-base font-extrabold text-text-primary mt-3 mb-1.5 border-b border-border pb-1">{children}</h1>,
+      h2: ({ children }) => <h2 className="text-sm font-extrabold text-text-primary mt-3 mb-1.5">{children}</h2>,
+      h3: ({ children }) => <h3 className="text-sm font-bold text-primary mt-2 mb-1">{children}</h3>,
+      // Inline code
+      code: ({ inline, children }) =>
+        inline
+          ? <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
+          : <code className="block bg-black/10 dark:bg-white/10 rounded-lg p-3 text-xs font-mono mt-2 mb-2 overflow-x-auto whitespace-pre">{children}</code>,
+      // Code block wrapper
+      pre: ({ children }) => <>{children}</>,
+      // Blockquote
+      blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/50 pl-3 italic opacity-80 my-2">{children}</blockquote>,
+      // Horizontal rule
+      hr: () => <hr className="border-border my-3" />,
+      // Links
+      a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:opacity-80">{children}</a>,
+    }}
+  >
+    {preprocessMarkdown(content)}
+  </ReactMarkdown>
+);
 
 const AiAnalysis = () => {
   const [file, setFile] = useState(null);
@@ -46,6 +112,9 @@ const AiAnalysis = () => {
   const [currentChatId, setCurrentChatId] = useState(null);
   const [renamingChatId, setRenamingChatId] = useState(null);
   const [renameTitle, setRenameTitle] = useState('');
+
+  // Sidebar collapse state
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const fileInputRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -138,8 +207,8 @@ const AiAnalysis = () => {
             { role: 'ai', text: `Trong không gian của tài liệu "${doc.title}" đã chọn, bạn có yêu cầu gì?` }
           ];
           setChats(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMsgs, context_doc_id: doc.id, context_folder_id: null } : c));
-          await API.put(`/ai/chats/${currentChatId}`, { 
-            context_doc_id: doc.id, 
+          await API.put(`/ai/chats/${currentChatId}`, {
+            context_doc_id: doc.id,
             context_folder_id: null,
             messages: updatedMsgs
           });
@@ -187,8 +256,8 @@ const AiAnalysis = () => {
             { role: 'ai', text: `Đã kích hoạt không gian Thư mục "${folder.name}". Tôi sẽ phân tích tổng hợp từ tất cả các tài liệu có trong thư mục này để trả lời bạn. Bạn muốn tôi giúp gì?` }
           ];
           setChats(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMsgs, context_doc_id: null, context_folder_id: folder.id } : c));
-          await API.put(`/ai/chats/${currentChatId}`, { 
-            context_doc_id: null, 
+          await API.put(`/ai/chats/${currentChatId}`, {
+            context_doc_id: null,
             context_folder_id: folder.id,
             messages: updatedMsgs
           });
@@ -246,8 +315,8 @@ const AiAnalysis = () => {
           { role: 'ai', text: `Đã tiếp nhận không gian ngữ nghĩa từ tài liệu "${file.name}". Bạn muốn tôi giúp gì từ dữ liệu này?` }
         ];
         setChats(prev => prev.map(c => c.id === currentChatId ? { ...c, messages: updatedMsgs, context_doc_id: res.data.id, context_folder_id: null } : c));
-        await API.put(`/ai/chats/${currentChatId}`, { 
-          context_doc_id: res.data.id, 
+        await API.put(`/ai/chats/${currentChatId}`, {
+          context_doc_id: res.data.id,
           context_folder_id: null,
           messages: updatedMsgs
         });
@@ -367,7 +436,7 @@ const AiAnalysis = () => {
         if (value) {
           const chunk = decoder.decode(value, { stream: !done });
           textBuffer += chunk;
-          
+
           setChats(prev => prev.map(c => c.id === activeChatId ? {
             ...c,
             messages: [...updatedMessagesWithUser, { role: 'ai', text: textBuffer }]
@@ -382,7 +451,7 @@ const AiAnalysis = () => {
     } catch (err) {
       console.error('Streaming Chat Error:', err);
       setChatLoading(false);
-      
+
       const chatObj = chats.find(c => c.id === activeChatId);
       const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
       const lastMsg = currentMsgs[currentMsgs.length - 1];
@@ -390,11 +459,11 @@ const AiAnalysis = () => {
       if (lastMsg && lastMsg.role === 'ai') {
         errorText = lastMsg.text + '\n\n[Lỗi kết nối API hoặc hết lượt hạn mức free]';
       }
-      
+
       const finalErrorMessages = lastMsg && lastMsg.role === 'ai'
         ? [...currentMsgs.slice(0, -1), { role: 'ai', text: errorText }]
         : [...currentMsgs, { role: 'ai', text: errorText }];
-        
+
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalErrorMessages } : c));
       API.put(`/ai/chats/${activeChatId}`, { messages: finalErrorMessages }).catch(console.error);
     }
@@ -462,14 +531,14 @@ const AiAnalysis = () => {
 
   // Extract display messages
   const activeChat = chats.find(c => c.id === currentChatId);
-  const displayMessages = activeChat 
+  const displayMessages = activeChat
     ? (typeof activeChat.messages === 'string' ? JSON.parse(activeChat.messages) : activeChat.messages)
     : [
-        {
-          role: 'ai',
-          text: 'Xin chào! Tôi là AI trợ lý phân tích tài liệu. Bạn có thể:\n- Chọn hoặc tải lên tài liệu / thư mục để phân tích\n- Hỏi về nội dung tài liệu / thư mục\n- Yêu cầu tóm tắt nội dung\n- Tìm kiếm thông tin cốt lõi'
-        }
-      ];
+      {
+        role: 'ai',
+        text: 'Xin chào! Tôi là AI trợ lý phân tích tài liệu. Bạn có thể:\n- Chọn hoặc tải lên tài liệu / thư mục để phân tích\n- Hỏi về nội dung tài liệu / thư mục\n- Yêu cầu tóm tắt nội dung\n- Tìm kiếm thông tin cốt lõi'
+      }
+    ];
 
   return (
     <div className="max-w-[1600px] w-full mx-auto flex flex-col h-full">
@@ -477,81 +546,119 @@ const AiAnalysis = () => {
       <p className="text-text-secondary text-sm mb-6">Chat với AI để phân tích, phân loại và tìm kiếm tài liệu</p>
 
       <div className="flex flex-col lg:flex-row gap-6 items-stretch flex-1">
-        
-        {/* LEFT COLUMN: Chat History List */}
-        <div className="w-full lg:w-[260px] shrink-0 bg-surface border border-border rounded-2xl p-4 flex flex-col h-[calc(100vh-230px)] min-h-[700px] shadow-[0_2px_15px_rgba(0,0,0,0.02)] overflow-hidden">
-          <button 
-            onClick={handleCreateNewChat}
-            className="w-full bg-primary hover:bg-primary-dark text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition mb-4 shadow-sm cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Trò chuyện mới</span>
-          </button>
-          
-          <div className="border-b border-border/50 pb-2 mb-3">
-            <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Trò chuyện gần đây</span>
-          </div>
 
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-            {chats.map(chat => {
-              const isSelected = chat.id === currentChatId;
-              const isRenaming = chat.id === renamingChatId;
-              return (
-                <div
-                  key={chat.id}
-                  onClick={() => !isRenaming && handleSelectChat(chat)}
-                  className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all text-xs cursor-pointer ${
-                    isSelected 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border bg-background hover:bg-black/5 text-text-primary dark:bg-slate-800/40 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2 overflow-hidden mr-2 flex-1">
-                    <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-primary' : 'text-text-secondary'}`} />
-                    {isRenaming ? (
-                      <input
-                        type="text"
-                        value={renameTitle}
-                        onChange={(e) => setRenameTitle(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSaveRename(chat.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="bg-surface border border-border rounded px-1.5 py-0.5 text-xs text-text-primary font-semibold w-full focus:outline-none focus:border-primary"
-                        autoFocus
-                      />
-                    ) : (
-                      <span className="truncate font-semibold flex-1 leading-snug">{chat.title}</span>
-                    )}
-                  </div>
-                  
-                  {isRenaming ? (
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button onClick={(e) => { e.stopPropagation(); handleSaveRename(chat.id); }} className="text-emerald-500 hover:text-emerald-600 p-0.5">
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); setRenamingChatId(null); }} className="text-red-500 hover:text-red-600 p-0.5">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 shrink-0 ml-1.5 transition-opacity">
-                      <button onClick={(e) => handleStartRename(e, chat)} className="text-text-secondary hover:text-primary p-0.5" title="Đổi tên">
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={(e) => handleDeleteChat(e, chat.id)} className="text-text-secondary hover:text-red-500 p-0.5" title="Xóa">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        {/* LEFT COLUMN: Chat History List (collapsible) */}
+        <div className={`shrink-0 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-full lg:w-[260px]' : 'w-auto lg:w-[44px]'
+          }`}>
 
-            {chats.length === 0 && (
-              <div className="text-center text-text-secondary text-xs italic py-8">
-                Chưa có lịch sử trò chuyện.
+          {/* Collapsed view: just a toggle button */}
+          {!sidebarOpen ? (
+            <div className="flex flex-col items-center h-[calc(100vh-230px)] min-h-[700px] bg-surface border border-border rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.02)] py-4 gap-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer"
+                title="Mở lịch sử trò chuyện"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <div className="flex-1 flex items-center justify-center">
+                <History className="w-4 h-4 text-text-secondary/40 rotate-90" />
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col h-[calc(100vh-230px)] min-h-[700px] shadow-[0_2px_15px_rgba(0,0,0,0.02)] overflow-hidden">
+
+              {/* Header row with toggle */}
+              <div className="flex items-center justify-between mb-4">
+                <button
+                  onClick={handleCreateNewChat}
+                  className="flex-1 bg-primary hover:bg-primary-dark text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition shadow-sm cursor-pointer mr-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Trò chuyện mới</span>
+                </button>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-text-secondary hover:text-text-primary transition-all cursor-pointer shrink-0"
+                  title="Ẩn lịch sử trò chuyện"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="border-b border-border/50 pb-2 mb-3 shrink-0">
+                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Trò chuyện gần đây</span>
+              </div>
+
+              {/* Scrollable list capped to a max-height */}
+              <div className="overflow-y-auto space-y-1.5 pr-1 custom-scrollbar" style={{ maxHeight: '420px' }}>
+                {chats.map(chat => {
+                  const isSelected = chat.id === currentChatId;
+                  const isRenaming = chat.id === renamingChatId;
+                  return (
+                    <div
+                      key={chat.id}
+                      onClick={() => !isRenaming && handleSelectChat(chat)}
+                      className={`group relative flex items-center justify-between p-3 rounded-xl border transition-all text-xs cursor-pointer ${isSelected
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : 'border-border bg-background hover:bg-black/5 text-text-primary dark:bg-slate-800/40 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      <div className="flex items-center space-x-2 overflow-hidden mr-2 flex-1">
+                        <MessageSquare className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-primary' : 'text-text-secondary'}`} />
+                        {isRenaming ? (
+                          <input
+                            type="text"
+                            value={renameTitle}
+                            onChange={(e) => setRenameTitle(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSaveRename(chat.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-surface border border-border rounded px-1.5 py-0.5 text-xs text-text-primary font-semibold w-full focus:outline-none focus:border-primary"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="truncate font-semibold flex-1 leading-snug">{chat.title}</span>
+                        )}
+                      </div>
+
+                      {isRenaming ? (
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <button onClick={(e) => { e.stopPropagation(); handleSaveRename(chat.id); }} className="text-emerald-500 hover:text-emerald-600 p-0.5">
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={(e) => { e.stopPropagation(); setRenamingChatId(null); }} className="text-red-500 hover:text-red-600 p-0.5">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 shrink-0 ml-1.5 transition-opacity">
+                          <button onClick={(e) => handleStartRename(e, chat)} className="text-text-secondary hover:text-primary p-0.5" title="Đổi tên">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={(e) => handleDeleteChat(e, chat.id)} className="text-text-secondary hover:text-red-500 p-0.5" title="Xóa">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {chats.length === 0 && (
+                  <div className="text-center text-text-secondary text-xs italic py-8">
+                    Chưa có lịch sử trò chuyện.
+                  </div>
+                )}
+              </div>
+
+              {/* Scroll hint when there are many chats */}
+              {chats.length > 5 && (
+                <div className="mt-2 shrink-0 text-center text-[10px] text-text-secondary/60 italic">
+                  ↓ Kéo xuống để xem thêm
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* CENTER COLUMN: Main Chat Card */}
@@ -577,8 +684,10 @@ const AiAnalysis = () => {
                         <span className="text-white/80 text-xs truncate max-w-[150px]">{chat.docName}</span>
                       </div>
                     </div>
-                  ) : (
+                  ) : chat.role === 'user' ? (
                     <p className="whitespace-pre-wrap leading-relaxed">{chat.text}</p>
+                  ) : (
+                    <MarkdownRenderer content={chat.text || ''} />
                   )}
                 </div>
               </div>
@@ -652,15 +761,33 @@ const AiAnalysis = () => {
             </div>
 
             <div
-              className="border-2 border-dashed border-border hover:border-primary/50 bg-background rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors mt-2"
+              className="border-2 border-dashed border-border hover:border-primary/50 bg-background rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all mt-2 group"
               onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
             >
-              <Upload className="w-6 h-6 text-text-secondary mb-2" />
+              <Upload className="w-5 h-5 text-text-secondary mb-2 group-hover:text-primary transition-colors" />
               <p className="text-sm font-semibold text-text-primary mb-1">Kéo thả tài liệu vào đây</p>
-              <p className="text-xs text-text-secondary mb-4">Hỗ trợ PDF, DOCX, XLSX, PPTX, PPT, XLS, CSV, MP4, MOV, AVI, HTML, TXT (Tối đa 100MB)</p>
-              <button className="bg-surface border border-border px-4 py-2 text-xs font-semibold rounded-lg hover:bg-black/5 transition">
-                Chọn tệp
-              </button>
+              <p className="text-[10px] text-text-secondary mb-3">Hoặc click để chọn tệp từ máy tính</p>
+
+              {/* Format badges */}
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                <span className="flex items-center space-x-1 bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                  <FileText className="w-2.5 h-2.5" /><span>PDF · DOCX</span>
+                </span>
+                <span className="flex items-center space-x-1 bg-green-500/10 text-green-600 border border-green-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                  <FileSpreadsheet className="w-2.5 h-2.5" /><span>XLSX · CSV</span>
+                </span>
+                <span className="flex items-center space-x-1 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                  <Presentation className="w-2.5 h-2.5" /><span>PPTX · PPT</span>
+                </span>
+                <span className="flex items-center space-x-1 bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                  <FileVideo className="w-2.5 h-2.5" /><span>MP4 · MOV · AVI</span>
+                </span>
+                <span className="flex items-center space-x-1 bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                  <Image className="w-2.5 h-2.5" /><span>PNG · JPG</span>
+                </span>
+              </div>
 
               <input
                 type="file"
@@ -671,47 +798,91 @@ const AiAnalysis = () => {
               />
             </div>
 
-            {file && (
-              <div className="mt-4 p-4 bg-surface border border-border rounded-xl flex flex-col space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-text-primary font-medium truncate">{file.name}</span>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1">Danh mục (Tùy chọn)</label>
-                  <select
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary cursor-pointer"
-                  >
-                    <option value="Auto">✨ AI Tự động nhận diện</option>
-                    <option value="Nhân sự">Nhân sự</option>
-                    <option value="Hành chính">Hành chính</option>
-                    <option value="Pháp luật">Pháp luật</option>
-                    <option value="Học tập">Học tập</option>
-                    <option value="Khác">Khác (Tự điền...)</option>
-                  </select>
-                </div>
-
-                {subject === 'Khác' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-text-secondary mb-1">Tên danh mục riêng của bạn</label>
-                    <input
-                      type="text"
-                      value={customSubject}
-                      onChange={(e) => setCustomSubject(e.target.value)}
-                      placeholder="VD: Tài chính, Dự án A..."
-                      className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary"
-                    />
+            {file && (() => {
+              const ext = file.name.split('.').pop()?.toLowerCase();
+              const isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext);
+              const isExcel = ['xlsx', 'xls', 'csv'].includes(ext);
+              const isPpt = ['pptx', 'ppt'].includes(ext);
+              const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+              const FileIcon = isVideo ? FileVideo : isExcel ? FileSpreadsheet : isPpt ? Presentation : isImage ? Image : FileText;
+              const iconColor = isVideo ? 'text-purple-500 bg-purple-500/10' : isExcel ? 'text-green-600 bg-green-500/10' : isPpt ? 'text-orange-500 bg-orange-500/10' : isImage ? 'text-blue-500 bg-blue-500/10' : 'text-red-500 bg-red-500/10';
+              const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+              return (
+                <div className="mt-3 p-4 bg-surface border border-border rounded-xl flex flex-col space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2.5 rounded-xl ${iconColor}`}>
+                      <FileIcon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-primary font-semibold truncate">{file.name}</p>
+                      <p className="text-[10px] text-text-secondary">{sizeMB} MB · {ext?.toUpperCase()}</p>
+                    </div>
+                    <button onClick={() => setFile(null)} className="text-text-secondary hover:text-red-500 transition-colors shrink-0">
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
 
-                <button onClick={handleUpload} disabled={loading} className="w-full bg-primary hover:bg-primary-dark text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center transition-colors animate-pulse">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                  {loading ? 'Đang tải & Phân tích...' : 'Xác nhận tải lên'}
-                </button>
-              </div>
-            )}
+                  {isVideo && (
+                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg px-3 py-2 flex items-start space-x-2">
+                      <FileVideo className="w-3.5 h-3.5 text-purple-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-purple-600 dark:text-purple-400 leading-relaxed">
+                        <strong>Video</strong> sẽ được phân tích bằng Gemini AI — có thể mất 1-3 phút tùy độ dài video. AI sẽ trích xuất nội dung, lời thoại và mô tả cảnh quay.
+                      </p>
+                    </div>
+                  )}
+                  {isExcel && (
+                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-3 py-2 flex items-start space-x-2">
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-green-700 dark:text-green-400 leading-relaxed">
+                        <strong>Excel/CSV</strong> sẽ được chuyển thành bảng văn bản có cấu trúc để AI phân tích. Bạn có thể hỏi về dữ liệu, tính toán, xu hướng.
+                      </p>
+                    </div>
+                  )}
+                  {isPpt && (
+                    <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg px-3 py-2 flex items-start space-x-2">
+                      <Presentation className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-orange-700 dark:text-orange-400 leading-relaxed">
+                        <strong>PowerPoint</strong> sẽ được trích xuất toàn bộ slide và nội dung văn bản. Bạn có thể đặt câu hỏi về nội dung trình bày.
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1">Danh mục (Tùy chọn)</label>
+                    <select
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary cursor-pointer"
+                    >
+                      <option value="Auto">✨ AI Tự động nhận diện</option>
+                      <option value="Nhân sự">Nhân sự</option>
+                      <option value="Hành chính">Hành chính</option>
+                      <option value="Pháp luật">Pháp luật</option>
+                      <option value="Học tập">Học tập</option>
+                      <option value="Khác">Khác (Tự điền...)</option>
+                    </select>
+                  </div>
+
+                  {subject === 'Khác' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-text-secondary mb-1">Tên danh mục riêng của bạn</label>
+                      <input
+                        type="text"
+                        value={customSubject}
+                        onChange={(e) => setCustomSubject(e.target.value)}
+                        placeholder="VD: Tài chính, Dự án A..."
+                        className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                  )}
+
+                  <button onClick={handleUpload} disabled={loading} className="w-full bg-primary hover:bg-primary-dark text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center transition-colors animate-pulse">
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    {loading ? 'Đang tải & Phân tích...' : 'Xác nhận tải lên'}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

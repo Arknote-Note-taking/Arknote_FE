@@ -1,13 +1,13 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { BrainCircuit, UploadCloud, FolderSearch, Network, CheckCircle, ArrowRight, Zap, Activity, Sun, Moon } from 'lucide-react';
+import { BrainCircuit, UploadCloud, FolderSearch, Network, CheckCircle, ArrowRight, Zap, Activity, Sun, Moon, LogOut } from 'lucide-react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
 
 const LandingPage = () => {
   const navigate = useNavigate();
-  const { user, login } = useContext(AuthContext);
+  const { user, login, logout } = useContext(AuthContext);
   const [upgrading, setUpgrading] = useState(false);
 
   const handleUpgradeToPro = async () => {
@@ -157,6 +157,17 @@ const LandingPage = () => {
                 >
                   <span>Vào Workspace</span>
                   <ArrowRight className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    toast.success('Đăng xuất thành công!');
+                  }}
+                  className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 px-4 py-2 rounded-xl text-sm font-bold transition-all cursor-pointer flex items-center space-x-2"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span className="hidden sm:inline">Đăng xuất</span>
                 </button>
               </div>
             ) : (
