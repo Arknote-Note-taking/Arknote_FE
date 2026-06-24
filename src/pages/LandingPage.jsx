@@ -1,7 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { BrainCircuit, UploadCloud, FolderSearch, Network, CheckCircle, ArrowRight, Zap, Activity, Sun, Moon, LogOut } from 'lucide-react';
+import { BrainCircuit, UploadCloud, FolderSearch, Network, CheckCircle, ArrowRight, Zap, Activity, Sun, Moon, LogOut, ArrowUp } from 'lucide-react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -9,6 +9,25 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const { user, login, logout } = useContext(AuthContext);
   const [upgrading, setUpgrading] = useState(false);
+  
+  // Scroll to top state
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleUpgradeToPro = async () => {
     if (!user) {
@@ -411,6 +430,16 @@ const LandingPage = () => {
         </div>
       </footer>
 
+      {/* Floating scroll to top button */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 z-[200] w-12 h-12 rounded-full bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary-dark hover:shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer border border-primary/20 animate-scaleUp"
+          title="Cuộn lên đầu trang"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
     </div>
   );
 };

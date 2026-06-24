@@ -32,6 +32,8 @@ import Profile from './pages/Profile';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
 import OnboardingModal from './components/OnboardingModal';
+import QuizHistory from './pages/QuizHistory';
+import TakeQuiz from './pages/TakeQuiz';
 
 const PrivateRoute = ({ children }) => {
   const { user } = useContext(AuthContext);
@@ -77,6 +79,8 @@ const AppContent = () => {
         <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
         <Route path="/payment-success" element={<PrivateRoute><PaymentSuccess /></PrivateRoute>} />
         <Route path="/payment-cancel" element={<PrivateRoute><PaymentCancel /></PrivateRoute>} />
+        <Route path="/quizzes" element={<PrivateRoute><QuizHistory /></PrivateRoute>} />
+        <Route path="/quizzes/:id" element={<PrivateRoute><TakeQuiz /></PrivateRoute>} />
         <Route path="/users" element={user && user.role === 'admin' ? <PrivateRoute><UserManagement /></PrivateRoute> : <Navigate to="/dashboard" />} />
       </Routes>
     </Router>

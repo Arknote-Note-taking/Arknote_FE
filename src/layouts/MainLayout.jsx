@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2 } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
 
 const MainLayout = ({ children }) => {
@@ -51,6 +51,7 @@ const MainLayout = ({ children }) => {
     { name: 'Tài liệu', path: '/documents', icon: FileText },
     { name: 'AI phân tích', path: '/ai', icon: BrainCircuit },
     { name: 'Knowledge Map', path: '/graph', icon: Network },
+    { name: 'Lịch sử Quiz', path: '/quizzes', icon: ClipboardList },
   ];
 
   const navItems = user?.role === 'admin'
