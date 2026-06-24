@@ -25,11 +25,10 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         <button
           key={page}
           onClick={() => onPageChange(page)}
-          className={`w-8 h-8 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-            page === currentPage
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
-          }`}
+          className={`w-8 h-8 rounded-lg text-sm font-semibold transition-all cursor-pointer ${page === currentPage
+            ? 'bg-primary text-white shadow-sm'
+            : 'text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+            }`}
         >
           {page}
         </button>
@@ -168,6 +167,23 @@ const UserManagement = () => {
     );
   };
 
+  const handlePermanentDelete = (id, userEmail) => {
+    triggerConfirm(
+      'Xóa vĩnh viễn Tài khoản?',
+      `Hành động này sẽ XÓA VĨNH VIỄN tài khoản "${userEmail || 'này'}" khỏi cơ sở dữ liệu. Dữ liệu của người dùng này không thể khôi phục lại. Bạn có chắc chắn?`,
+      'Xóa vĩnh viễn',
+      async () => {
+        try {
+          await API.delete(`/users/${id}/permanent`);
+          toast.success('Đã xóa vĩnh viễn tài khoản thành công!');
+          setDeletedUsers(prev => prev.filter(u => u.id !== id));
+        } catch (err) {
+          toast.error(err.response?.data?.error || 'Lỗi khi xóa vĩnh viễn tài khoản!');
+        }
+      }
+    );
+  };
+
   // Paginated slices
   const userTotalPages = Math.max(1, Math.ceil(users.length / USER_PAGE_SIZE));
   const pagedUsers = users.slice((userPage - 1) * USER_PAGE_SIZE, userPage * USER_PAGE_SIZE);
@@ -188,11 +204,10 @@ const UserManagement = () => {
       <div className="flex space-x-1 border-b border-border mb-6">
         <button
           onClick={() => setActiveTab('users')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
-            activeTab === 'users'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-text-secondary hover:text-text-primary'
-          }`}
+          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${activeTab === 'users'
+            ? 'border-b-2 border-primary text-primary'
+            : 'text-text-secondary hover:text-text-primary'
+            }`}
         >
           <div className="flex items-center space-x-2">
             <Users className="w-4 h-4" />
@@ -201,15 +216,14 @@ const UserManagement = () => {
         </button>
         <button
           onClick={() => setActiveTab('deletedUsers')}
-          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
-            activeTab === 'deletedUsers'
-              ? 'border-b-2 border-primary text-primary'
-              : 'text-text-secondary hover:text-text-primary'
-          }`}
+          className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${activeTab === 'deletedUsers'
+            ? 'border-b-2 border-primary text-primary'
+            : 'text-text-secondary hover:text-text-primary'
+            }`}
         >
           <div className="flex items-center space-x-2">
             <Users className="w-4 h-4 text-red-500" />
-            <span>Khôi phục tài khoản đã xóa</span>
+            <span>Tài khoản đã xóa</span>
           </div>
         </button>
       </div>
@@ -233,16 +247,15 @@ const UserManagement = () => {
                     <td className="px-6 py-4 font-semibold text-text-primary">{u.name || 'No Name'}</td>
                     <td className="px-6 py-4">{u.email}</td>
                     <td className="px-6 py-4">
-                       <span className={`px-2 py-1 rounded text-xs font-bold ${
-                          u.role === 'admin' 
-                            ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#FBB024]' 
-                            : 'bg-[#E0F2FE] text-[#0284C7] dark:bg-[#0284C7]/15 dark:text-[#38BDF8]'
-                       }`}>
-                          {u.role}
-                       </span>
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin'
+                        ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#FBB024]'
+                        : 'bg-[#E0F2FE] text-[#0284C7] dark:bg-[#0284C7]/15 dark:text-[#38BDF8]'
+                        }`}>
+                        {u.role}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => initiateDelete(u.id, u.email)}
                         className="text-text-secondary hover:text-red-500 transition-colors p-1 cursor-pointer"
                         title="Xóa người dùng"
@@ -255,10 +268,10 @@ const UserManagement = () => {
               </tbody>
             </table>
             {users.length === 0 && (
-               <div className="flex flex-col items-center justify-center p-8 text-text-secondary">
-                 <ShieldAlert className="w-8 h-8 opacity-30 mb-2" />
-                 <p>Không có kết nối dữ liệu người dùng.</p>
-               </div>
+              <div className="flex flex-col items-center justify-center p-8 text-text-secondary">
+                <ShieldAlert className="w-8 h-8 opacity-30 mb-2" />
+                <p>Không có kết nối dữ liệu người dùng.</p>
+              </div>
             )}
           </div>
 
@@ -305,23 +318,32 @@ const UserManagement = () => {
                         <td className="px-6 py-4 font-semibold text-text-primary">{u.name || 'No Name'}</td>
                         <td className="px-6 py-4">{u.email}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
-                             u.role === 'admin' 
-                               ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#FBB024]' 
-                               : 'bg-[#E0F2FE] text-[#0284C7] dark:bg-[#0284C7]/15 dark:text-[#38BDF8]'
-                          }`}>
-                             {u.role}
+                          <span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin'
+                            ? 'bg-[#FEF3C7] text-[#D97706] dark:bg-[#D97706]/15 dark:text-[#FBB024]'
+                            : 'bg-[#E0F2FE] text-[#0284C7] dark:bg-[#0284C7]/15 dark:text-[#38BDF8]'
+                            }`}>
+                            {u.role}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleRestoreUser(u.id, u.email)}
-                            className="text-primary hover:text-primary-dark transition-all p-1.5 bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer flex items-center space-x-1 ml-auto text-xs font-bold"
-                            title="Khôi phục tài khoản này"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" />
-                            <span>Khôi phục</span>
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleRestoreUser(u.id, u.email)}
+                              className="text-primary hover:text-primary-dark transition-all p-1.5 bg-primary/10 hover:bg-primary/20 rounded-lg cursor-pointer flex items-center space-x-1 text-xs font-bold"
+                              title="Khôi phục tài khoản này"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Khôi phục</span>
+                            </button>
+                            <button
+                              onClick={() => handlePermanentDelete(u.id, u.email)}
+                              className="text-red-500 hover:text-red-600 transition-all p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg cursor-pointer flex items-center space-x-1 text-xs font-bold"
+                              title="Xóa vĩnh viễn tài khoản này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Xóa vĩnh viễn</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -355,13 +377,13 @@ const UserManagement = () => {
         </div>
       )}
 
-      <ConfirmModal 
-         isOpen={confirmData.isOpen}
-         onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
-         onConfirm={confirmData.onConfirm}
-         title={confirmData.title}
-         message={confirmData.message}
-         confirmText={confirmData.confirmText}
+      <ConfirmModal
+        isOpen={confirmData.isOpen}
+        onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmData.onConfirm}
+        title={confirmData.title}
+        message={confirmData.message}
+        confirmText={confirmData.confirmText}
       />
     </div>
   );
