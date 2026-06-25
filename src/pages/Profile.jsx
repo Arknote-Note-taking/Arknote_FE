@@ -4,10 +4,12 @@ import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import { User, Mail, Shield, Calendar, Edit3, Save, X, Loader2, Eye, EyeOff, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useConfirm } from '../context/ConfirmContext';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, login, logout } = useContext(AuthContext);
+  const { confirm } = useConfirm();
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -144,8 +146,8 @@ const Profile = () => {
 
 
   const handleRequestDeleteAccount = async () => {
-    const confirm = window.confirm("Bạn có chắc chắn muốn gửi yêu cầu xóa tài khoản đến Admin không?");
-    if (!confirm) return;
+    const isConfirmed = await confirm("Bạn có chắc chắn muốn gửi yêu cầu xóa tài khoản đến Admin không?");
+    if (!isConfirmed) return;
     try {
       await API.post('/users/request-delete');
       toast.success("Đã gửi yêu cầu xóa tài khoản tới Admin thành công!");

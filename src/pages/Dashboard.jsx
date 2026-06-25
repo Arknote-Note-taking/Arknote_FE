@@ -5,6 +5,7 @@ import { Search, Plus } from 'lucide-react';
 import DocumentCard from '../components/DocumentCard';
 import UploadModal from '../components/UploadModal';
 import DocumentDetail from '../components/DocumentDetail';
+import { useConfirm } from '../context/ConfirmContext';
 
 const Dashboard = () => {
   const [documents, setDocuments] = useState([]);
@@ -12,6 +13,7 @@ const Dashboard = () => {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const { socket } = useContext(SocketContext);
+  const { confirm } = useConfirm();
 
   const fetchDocuments = async () => {
     try {
@@ -37,9 +39,11 @@ const Dashboard = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this document?')) return;
+    const isConfirmed = await confirm('Bạn có chắc muốn xóa tài liệu này?');
+    if (!isConfirmed) return;
     try {
       await API.delete(`/documents/${id}`);
+      setDocuments(prev => prev.filter(d => d.id !== id));
     } catch (err) {
       console.error(err);
     }

@@ -143,7 +143,12 @@ const DocumentList = () => {
   const fetchFolders = useCallback(async () => {
     try {
       const res = await API.get('/documents/folders');
-      setFolders(res.data);
+      const sharedRes = await API.get('/shares/shared-folders');
+      
+      const ownFolders = (res.data || []).map(f => ({ ...f, is_shared: false }));
+      const sharedFolders = (sharedRes.data || []).map(f => ({ ...f, is_shared: true }));
+      
+      setFolders([...ownFolders, ...sharedFolders]);
     } catch (err) {
       console.error(err);
     }
@@ -187,17 +192,25 @@ const DocumentList = () => {
       fetchDeletedDocs();
       fetchFolders();
     };
+    const handleUserNotification = (data) => {
+      console.log('[Socket] DocumentList received user_notification:', data);
+      if (data.recipient_id === user?.id && (data.type === 'folder_shared' || data.type === 'folder_unshared')) {
+        fetchFolders();
+      }
+    };
 
     socket.on('document_created', handleCreated);
     socket.on('document_updated', handleUpdated);
     socket.on('document_deleted', handleDeleted);
+    socket.on('user_notification', handleUserNotification);
 
     return () => {
       socket.off('document_created', handleCreated);
       socket.off('document_updated', handleUpdated);
       socket.off('document_deleted', handleDeleted);
+      socket.off('user_notification', handleUserNotification);
     };
-  }, [socket, fetchDeletedDocs, fetchFolders]);
+  }, [socket, user, fetchDeletedDocs, fetchFolders]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
@@ -486,7 +499,7 @@ const DocumentList = () => {
             <div>
               <h4 className="font-bold text-text-primary text-sm">Giới hạn tải lên tài liệu</h4>
               <p className="text-xs text-text-secondary mt-0.5">
-                Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / 5</strong> tài liệu miễn phí.
+                Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / 50</strong> tài liệu miễn phí.
               </p>
             </div>
           </div>
@@ -763,18 +776,26 @@ const DocumentList = () => {
                   <Folder className="w-6 h-6" />
                 </div>
 
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                  className="text-text-secondary hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer duration-200"
-                  title="Xóa thư mục"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {!f.is_shared ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
+                    className="text-text-secondary hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer duration-200"
+                    title="Xóa thư mục"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <div className="text-primary-dark/80 bg-primary/10 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Shared
+                  </div>
+                )}
               </div>
 
               <div>
                 <h3 className="font-extrabold text-text-primary text-base truncate mb-1">{f.name}</h3>
-                <p className="text-xs text-text-secondary">{f.docCount || 0} tài liệu bên trong</p>
+                <p className="text-xs text-text-secondary">
+                  {f.is_shared ? `Bởi ${f.ownerName || 'Chủ sở hữu'}` : `${f.docCount || 0} tài liệu bên trong`}
+                </p>
               </div>
 
               <div className="absolute right-0 bottom-0 w-24 h-24 bg-primary/5 rounded-full translate-x-8 translate-y-8 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

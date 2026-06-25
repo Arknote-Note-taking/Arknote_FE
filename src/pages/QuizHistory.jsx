@@ -2,12 +2,14 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import toast from 'react-hot-toast';
-import { Loader2, ClipboardList, BookOpen, Clock, Play, Eye, RotateCcw, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, ClipboardList, BookOpen, Clock, Play, Eye, RotateCcw, Calendar, CheckCircle, AlertCircle, Trash2 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const QuizHistory = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState(user?.role === 'admin' ? 'quizzes' : 'history');
   const [quizzes, setQuizzes] = useState([]);
   const [attempts, setAttempts] = useState([]);
@@ -23,8 +25,8 @@ const QuizHistory = () => {
   const [quizzesPage, setQuizzesPage] = useState(1);
   const itemsPerPage = 4;
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       if (user?.role === 'admin') {
         const quizzesRes = await API.get('/quizzes');
@@ -41,7 +43,7 @@ const QuizHistory = () => {
       toast.error('Không thể tải danh sách lịch sử Quiz.');
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -85,7 +87,7 @@ const QuizHistory = () => {
   const handleStartQuiz = async (quizId) => {
     try {
       const toastId = toast.loading('Đang khởi tạo lượt làm bài...');
-      const res = await API.post(`/quizzes/${quizId}/attempts`, { quizId });
+      const res = await API.post(`/quizzes/${quizId}/attempts`, { quizId, forceNew: true });
       toast.dismiss(toastId);
       navigate(`/quizzes/${quizId}`);
     } catch (err) {
@@ -105,6 +107,38 @@ const QuizHistory = () => {
       console.error(err);
     } finally {
       setLoadingOverview(false);
+    }
+  };
+
+  const handleDeleteQuiz = async (quizId) => {
+    const isConfirmed = await confirm('Bạn có chắc chắn muốn xóa bài Quiz này? Tất cả lịch sử làm bài liên quan cũng sẽ bị xóa.');
+    if (!isConfirmed) {
+      return;
+    }
+    try {
+      const toastId = toast.loading('Đang xóa bài Quiz...');
+      await API.delete(`/quizzes/${quizId}`);
+      toast.success('Đã xóa bài Quiz thành công.', { id: toastId });
+      fetchData(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Không thể xóa bài Quiz.');
+      console.error(err);
+    }
+  };
+
+  const handleDeleteAttempt = async (attemptId) => {
+    const isConfirmed = await confirm('Bạn có chắc chắn muốn xóa lịch sử làm bài này?');
+    if (!isConfirmed) {
+      return;
+    }
+    try {
+      const toastId = toast.loading('Đang xóa lịch sử làm bài...');
+      await API.delete(`/quizzes/attempts/${attemptId}`);
+      toast.success('Đã xóa lịch sử làm bài thành công.', { id: toastId });
+      fetchData(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Không thể xóa lịch sử làm bài.');
+      console.error(err);
     }
   };
 
@@ -226,7 +260,7 @@ const QuizHistory = () => {
                           ) : (
                             <>
                               <AlertCircle className="w-3 h-3" />
-                              <span>Đang làm dở</span>
+                              <span>Đang làm</span>
                             </>
                           )}
                         </span>
@@ -280,6 +314,16 @@ const QuizHistory = () => {
                             <span>Làm tiếp</span>
                           </button>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAttempt(att.id);
+                          }}
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-600 border border-red-500/20 p-2.5 rounded-xl transition cursor-pointer"
+                          title="Xóa lịch sử"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -304,8 +348,8 @@ const QuizHistory = () => {
                         key={pageNum}
                         onClick={() => setAttemptsPage(pageNum)}
                         className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${attemptsPage === pageNum
-                            ? 'bg-primary text-white shadow-sm border border-primary'
-                            : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                          ? 'bg-primary text-white shadow-sm border border-primary'
+                          : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
                           }`}
                       >
                         {pageNum}
@@ -362,13 +406,25 @@ const QuizHistory = () => {
 
                   <div className="flex items-center gap-2 border-t border-border pt-4 mt-auto">
                     {isAdmin ? (
-                      <button
-                        onClick={() => handleViewOverview(quiz)}
-                        className="w-full bg-primary hover:bg-primary-dark text-white font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-primary/20"
-                      >
-                        <ClipboardList className="w-4 h-4" />
-                        <span>Xem bảng kết quả</span>
-                      </button>
+                      <div className="flex w-full gap-2">
+                        <button
+                          onClick={() => handleViewOverview(quiz)}
+                          className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-primary/20"
+                        >
+                          <ClipboardList className="w-4 h-4" />
+                          <span>Xem kết quả</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteQuiz(quiz.id);
+                          }}
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-600 border border-red-500/20 p-2.5 rounded-xl transition cursor-pointer"
+                          title="Xóa bài Quiz"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     ) : (
                       <>
                         <button
@@ -384,6 +440,16 @@ const QuizHistory = () => {
                           title="Làm lượt mới"
                         >
                           <RotateCcw className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteQuiz(quiz.id);
+                          }}
+                          className="bg-red-500/10 hover:bg-red-500/20 text-red-600 border border-red-500/20 p-2.5 rounded-xl transition cursor-pointer"
+                          title="Xóa bài Quiz"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </>
                     )}
@@ -409,8 +475,8 @@ const QuizHistory = () => {
                         key={pageNum}
                         onClick={() => setQuizzesPage(pageNum)}
                         className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${quizzesPage === pageNum
-                            ? 'bg-primary text-white shadow-sm border border-primary'
-                            : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                          ? 'bg-primary text-white shadow-sm border border-primary'
+                          : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
                           }`}
                       >
                         {pageNum}
@@ -475,6 +541,7 @@ const QuizHistory = () => {
                           <th className="py-3 px-4">Điểm số</th>
                           <th className="py-3 px-4">Thời gian làm</th>
                           <th className="py-3 px-4">Thời gian nộp</th>
+                          <th className="py-3 px-4 text-center">Thao tác</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -490,7 +557,7 @@ const QuizHistory = () => {
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                 : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                 }`}>
-                                {att.is_completed ? 'Hoàn thành' : 'Đang làm dở'}
+                                {att.is_completed ? 'Hoàn thành' : 'Đang làm'}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 font-black text-sm text-primary">
@@ -501,6 +568,30 @@ const QuizHistory = () => {
                             </td>
                             <td className="py-3.5 px-4 text-text-secondary font-semibold">
                               {formatDate(att.completed_at || att.created_at)}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const isConfirmed = await confirm('Bạn có chắc muốn xóa lịch sử làm bài này của khách hàng?');
+                                  if (!isConfirmed) return;
+                                  try {
+                                    const toastId = toast.loading('Đang xóa...');
+                                    await API.delete(`/quizzes/attempts/${att.id}`);
+                                    toast.success('Đã xóa thành công', { id: toastId });
+                                    const res = await API.get(`/quizzes/${selectedQuizForOverview.id}/attempts/admin`);
+                                    setQuizAttemptsOverview(res.data);
+                                    fetchData(true);
+                                  } catch (err) {
+                                    toast.error(err.response?.data?.error || 'Lỗi khi xóa');
+                                    console.error(err);
+                                  }
+                                }}
+                                className="text-red-500 hover:text-red-700 p-1.5 rounded transition cursor-pointer inline-flex items-center justify-center"
+                                title="Xóa lượt làm bài"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </td>
                           </tr>
                         ))}

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import API from '../services/api';
 import toast from 'react-hot-toast';
 import { Loader2, ArrowLeft, Clock, Award, CheckCircle, XCircle, AlertTriangle, ChevronLeft, ChevronRight, Eye, ClipboardList, HelpCircle, ArrowUp } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const TIME_LIMIT = 1200; // 20 minutes in seconds
 
@@ -11,6 +12,7 @@ const TakeQuiz = () => {
   const [searchParams] = useSearchParams();
   const attemptIdParam = searchParams.get('attemptId');
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
   const [loading, setLoading] = useState(true);
   const [quiz, setQuiz] = useState(null);
@@ -65,6 +67,12 @@ const TakeQuiz = () => {
 
   // Fetch quiz and initial attempt status
   useEffect(() => {
+    if (user?.role === 'admin') {
+      toast.error('Admin không được phép làm bài Quiz.');
+      navigate('/quizzes');
+      return;
+    }
+
     if (!attemptIdParam && (!quizId || quizId === 'undefined')) {
       toast.error('Mã bài Quiz không hợp lệ.');
       navigate('/quizzes');

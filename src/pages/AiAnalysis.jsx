@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
+import { AuthContext } from '../context/AuthContext';
 import {
   Upload,
   MessageSquare,
@@ -31,6 +32,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DocumentSelectModal from '../components/DocumentSelectModal';
 import FolderSelectModal from '../components/FolderSelectModal';
+import { useConfirm } from '../context/ConfirmContext';
 
 // Preprocess AI text: convert common non-markdown patterns to proper markdown
 const preprocessMarkdown = (text) => {
@@ -88,6 +90,8 @@ const MarkdownRenderer = ({ content }) => (
 );
 
 const AiAnalysis = () => {
+  const { refreshProfile } = useContext(AuthContext);
+  const { confirm } = useConfirm();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -448,6 +452,7 @@ const AiAnalysis = () => {
       const finalMessages = [...updatedMessagesWithUser, { role: 'ai', text: textBuffer }];
       await API.put(`/ai/chats/${activeChatId}`, { messages: finalMessages });
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalMessages } : c));
+      refreshProfile();
     } catch (err) {
       console.error('Streaming Chat Error:', err);
       setChatLoading(false);
@@ -514,7 +519,8 @@ const AiAnalysis = () => {
 
   const handleDeleteChat = async (e, chatId) => {
     e.stopPropagation();
-    if (!window.confirm('Bạn có chắc muốn xóa cuộc trò chuyện này?')) return;
+    const isConfirmed = await confirm('Bạn có chắc muốn xóa cuộc trò chuyện này?');
+    if (!isConfirmed) return;
     try {
       await API.delete(`/ai/chats/${chatId}`);
       setChats(prev => prev.filter(c => c.id !== chatId));
