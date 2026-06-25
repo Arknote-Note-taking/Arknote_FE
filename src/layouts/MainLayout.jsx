@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
 
 const MainLayout = ({ children }) => {
@@ -14,6 +14,11 @@ const MainLayout = ({ children }) => {
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
     setShowNotifications(false);
+
+    if (notif.type === 'folder_shared') {
+      navigate('/documents');
+      return;
+    }
 
     const targetDocId = notif.doc_id || notif.docId;
     if (!targetDocId) return;
@@ -51,12 +56,13 @@ const MainLayout = ({ children }) => {
     { name: 'Tài liệu', path: '/documents', icon: FileText },
     { name: 'AI phân tích', path: '/ai', icon: BrainCircuit },
     { name: 'Knowledge Map', path: '/graph', icon: Network },
+    { name: 'Flashcard', path: '/flashcards', icon: Layers },
     { name: 'Lịch sử Quiz', path: '/quizzes', icon: ClipboardList },
   ];
 
   const navItems = user?.role === 'admin'
     ? [
-      ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph'),
+      ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph' && item.path !== '/flashcards'),
       { name: 'Khách hàng', path: '/users', icon: Users }
     ]
     : baseNavItems;
@@ -106,9 +112,15 @@ const MainLayout = ({ children }) => {
                 )}
               </div>
               {!user?.is_pro && (
+                <div className="flex items-center justify-between text-xs font-semibold text-text-secondary mt-1">
+                  <span>Tín dụng AI:</span>
+                  <span className="text-text-primary font-bold">{user?.ai_credits_remaining !== undefined ? user.ai_credits_remaining : 30} lượt</span>
+                </div>
+              )}
+              {!user?.is_pro && (
                 <button
                   onClick={() => navigate('/#pricing')}
-                  className="text-[10px] text-primary hover:text-primary-dark font-extrabold w-fit hover:underline text-left cursor-pointer transition"
+                  className="text-[10px] text-primary hover:text-primary-dark font-extrabold w-fit hover:underline text-left cursor-pointer transition mt-1"
                 >
                   Nâng cấp lên PRO
                 </button>

@@ -31,27 +31,31 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const refreshProfile = async () => {
+    try {
+      const localUserStr = localStorage.getItem('user');
+      const localUser = localUserStr ? JSON.parse(localUserStr) : null;
+      if (localUser && localUser.token) {
+        const res = await API.get('/users/profile');
+        if (res.data) {
+          login(res.data);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to refresh user profile:", error);
+    }
+  };
+
   useEffect(() => {
     const fetchLatestProfile = async () => {
-      try {
-        const localUserStr = localStorage.getItem('user');
-        const localUser = localUserStr ? JSON.parse(localUserStr) : null;
-        if (localUser && localUser.token) {
-          const res = await API.get('/users/profile');
-          if (res.data) {
-            login(res.data);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to auto-sync user profile on app mount:", error);
-      }
+      await refreshProfile();
     };
 
     fetchLatestProfile();
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

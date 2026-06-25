@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import API from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Loader2, Link as LinkIcon, Trash2, Send, Sparkles, BookOpen, Key, AlertTriangle, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Loader2, Link as LinkIcon, Trash2, Send, Sparkles, BookOpen, Key, AlertTriangle, MessageSquare, Edit2, Bookmark, Users, HelpCircle, Layers, Plus } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import { AuthContext } from '../context/AuthContext';
+import { SocketContext } from '../context/SocketContext';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
@@ -19,7 +20,7 @@ const DocumentDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useContext(AuthContext);
+  const { user, refreshProfile } = useContext(AuthContext);
   const [doc, setDoc] = useState(null);
   const [relatedDocs, setRelatedDocs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,58 +33,21 @@ const DocumentDetail = () => {
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Quiz states
-  const [generatingQuiz, setGeneratingQuiz] = useState(false);
+  // Proposal 2: AI Flashcards state
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
 
-  const handleStartQuiz = async (count = 5) => {
-    if (generatingQuiz) {
-      toast.error("Hệ thống đang tạo bộ câu hỏi trắc nghiệm rồi. Vui lòng đợi trong giây lát!");
-      return;
-    }
+  // Proposal 3: Document Comments states
+  const { socket } = useContext(SocketContext);
+  const [activeTab, setActiveTab] = useState('ai');
+  const [comments, setComments] = useState([]);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
-    // Check Pro package first
-    if (!user?.is_pro && user?.role !== 'admin') {
-      toast.error(
-        (t) => (
-          <div className="flex flex-col space-y-2.5">
-            <span className="font-bold text-sm text-text-primary">Tính năng Pro đặc biệt!</span>
-            <span className="text-xs text-text-secondary">Vui lòng nâng cấp tài khoản lên gói PRO để tự động tạo câu hỏi trắc nghiệm ôn tập bằng AI.</span>
-            <button
-              onClick={() => {
-                toast.dismiss(t.id);
-                navigate('/#pricing');
-              }}
-              className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg self-end"
-            >
-              Nâng cấp ngay
-            </button>
-          </div>
-        ),
-        { duration: 6000 }
-      );
-      return;
-    }
-
-    setGeneratingQuiz(true);
-    const toastId = toast.loading(`Gemini AI đang soạn bộ ${count} câu hỏi trắc nghiệm từ tài liệu của bạn...`);
-    try {
-      const res = await API.post('/ai/quiz', { documentId: id, count });
-      const quizObj = res.data?.quiz;
-      const quizId = quizObj ? (quizObj.id || (Array.isArray(quizObj) ? quizObj[0]?.id : null)) : null;
-      
-      if (quizId) {
-        toast.success("Đã tạo bộ câu hỏi ôn tập thành công!", { id: toastId });
-        navigate(`/quizzes/${quizId}`);
-      } else {
-        toast.error("Không tìm thấy ID của bài Quiz vừa tạo.", { id: toastId });
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.error || "Không thể khởi tạo bộ quiz AI lúc này.", { id: toastId });
-    } finally {
-      setGeneratingQuiz(false);
-    }
-  };
-
+  // Proposal 4: Highlights / Annotations states
+  const [annotations, setAnnotations] = useState([]);
+  const [selectedText, setSelectedText] = useState('');
+  const [annotationNote, setAnnotationNote] = useState('');
+  const [showAnnotationModal, setShowAnnotationModal] = useState(false);
   // AI Chatbox and Studio state
   const [chatMessages, setChatMessages] = useState([
     {
@@ -108,11 +72,11 @@ const DocumentDetail = () => {
       try {
         const res = await API.get(`/documents/${id}`);
         setDoc(res.data);
-        
+
         // Fetch real related documents from backend mapping Cosine Similarity 
         const relRes = await API.get(`/documents/${id}/related`);
         setRelatedDocs(relRes.data);
-        
+
       } catch (err) {
         console.error(err);
       } finally {
@@ -121,6 +85,127 @@ const DocumentDetail = () => {
     };
     fetchDocAndRelated();
   }, [id]);
+
+  const handleGenerateFlashcards = async () => {
+    if (generatingFlashcards) return;
+    setGeneratingFlashcards(true);
+    const toastId = toast.loading("AI đang tự động sinh bộ thẻ Flashcards...");
+    try {
+      await API.post('/flashcards/generate', { documentId: id, count: 8 });
+      // Refresh user profile/credits on success
+      refreshProfile();
+      toast.success("Tạo bộ Flashcards thành công!", { id: toastId });
+      navigate('/flashcards');
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Không thể khởi tạo bộ flashcard AI lúc này.", { id: toastId });
+    } finally {
+      setGeneratingFlashcards(false);
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      setCommentsLoading(true);
+      const res = await API.get(`/shares/documents/${id}/comments`);
+      setComments(res.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const handleSendComment = async (e) => {
+    e.preventDefault();
+    if (!commentInput.trim()) return;
+    try {
+      const res = await API.post('/shares/documents/comments', {
+        documentId: id,
+        content: commentInput.trim()
+      });
+      setComments(prev => {
+        if (prev.some(c => c.id === res.data.id)) return prev;
+        return [...prev, res.data];
+      });
+      setCommentInput('');
+    } catch (err) {
+      toast.error('Lỗi khi gửi bình luận.');
+    }
+  };
+
+  const fetchAnnotations = async () => {
+    try {
+      const res = await API.get(`/annotations/documents/${id}`);
+      setAnnotations(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveAnnotation = async (e) => {
+    e.preventDefault();
+    if (!selectedText.trim()) return;
+    try {
+      const res = await API.post(`/annotations/documents/${id}`, {
+        selectedText,
+        note: annotationNote.trim(),
+        color: '#ffeb3b'
+      });
+      toast.success('Đã lưu highlight ghi chú!');
+      setAnnotations(prev => [...prev, res.data]);
+      setShowAnnotationModal(false);
+      setSelectedText('');
+      setAnnotationNote('');
+    } catch (err) {
+      toast.error('Lỗi khi lưu highlight.');
+    }
+  };
+
+  const handleDeleteAnnotation = async (annId) => {
+    try {
+      await API.delete(`/annotations/${annId}`);
+      toast.success('Đã xóa highlight!');
+      setAnnotations(prev => prev.filter(a => a.id !== annId));
+    } catch (err) {
+      toast.error('Xóa highlight thất bại.');
+    }
+  };
+
+  const handleTextSelection = () => {
+    if (isEditing) return; // Do not annotate while editing summary
+    const selection = window.getSelection();
+    const text = selection.toString().trim();
+    if (text.length > 3) {
+      setSelectedText(text);
+      setAnnotationNote('');
+      setShowAnnotationModal(true);
+    }
+  };
+
+  useEffect(() => {
+    if (id) {
+      fetchAnnotations();
+      if (activeTab === 'comments') {
+        fetchComments();
+      }
+    }
+  }, [id, activeTab]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleCommentAdded = (comment) => {
+      if (comment.document_id === id) {
+        setComments(prev => {
+          if (prev.some(c => c.id === comment.id)) return prev;
+          return [...prev, comment];
+        });
+      }
+    };
+    socket.on('comment_added', handleCommentAdded);
+    return () => {
+      socket.off('comment_added', handleCommentAdded);
+    };
+  }, [socket, id]);
 
   useEffect(() => {
     if (doc) {
@@ -175,6 +260,8 @@ const DocumentDetail = () => {
     setAiLoading(true);
     try {
       const res = await API.post('/ai/reanalyze', { documentId: id });
+      // Refresh user profile/credits on success
+      refreshProfile();
       setEditTitle(res.data.title);
       setEditSubject(res.data.subject);
       setEditSummary(res.data.summary);
@@ -185,35 +272,9 @@ const DocumentDetail = () => {
       setAiLoading(false);
     }
   };
-
   const handleSendChat = async (directText = null) => {
     const textToSend = directText || chatInput;
     if (!textToSend.trim()) return;
-
-    // Check if the user is asking to create a quiz
-    const textLower = textToSend.toLowerCase();
-    const isQuizStudio = directText === 'Hãy tạo 5 câu hỏi trắc nghiệm (quiz) chất lượng cao dựa trên nội dung tài liệu này, có kèm đáp án và giải thích chi tiết cho từng câu.';
-    
-    // Check if prompt wants a quiz (matches 'tạo'/'làm' and 'quiz'/'trắc nghiệm'/'câu hỏi')
-    const isQuizPrompt = isQuizStudio || 
-      (/\btạo\b/i.test(textLower) && (/\bquiz\b/i.test(textLower) || /\btrắc nghiệm\b/i.test(textLower) || /\bcâu hỏi\b/i.test(textLower)));
-
-    if (isQuizPrompt) {
-      // Try to extract the number of questions. E.g. "tạo 10 câu trắc nghiệm" -> 10, "tạo quiz 7 câu" -> 7
-      const match = textLower.match(/(?:tạo|làm|viết)\s*(?:bộ|bài)?\s*(?:quiz|trắc nghiệm|câu hỏi|câu)?\s*(\d+)\s*(?:câu|câu hỏi)?/i) ||
-                    textLower.match(/(\d+)\s*(?:câu|câu hỏi|câu trắc nghiệm|quiz)/i);
-      
-      let count = 5; // Default to 5
-      if (match && match[1]) {
-        const parsed = parseInt(match[1], 10);
-        if (!isNaN(parsed) && parsed > 0) {
-          count = parsed;
-        }
-      }
-      
-      handleStartQuiz(count);
-      return;
-    }
 
     setChatMessages(prev => [...prev, { role: 'user', text: textToSend.trim() }]);
     if (!directText) setChatInput('');
@@ -221,6 +282,8 @@ const DocumentDetail = () => {
 
     try {
       const res = await API.post('/ai/qna', { documentId: id, question: textToSend.trim() });
+      // Refresh user profile/credits on success
+      refreshProfile();
       setChatMessages(prev => [...prev, { role: 'ai', text: res.data.answer }]);
     } catch (err) {
       setChatMessages(prev => [...prev, { role: 'ai', text: 'Rất tiếc, hệ thống gặp sự cố khi xử lý dữ liệu AI. Vui lòng thử lại sau.' }]);
@@ -230,12 +293,6 @@ const DocumentDetail = () => {
   };
 
   const studioCommands = [
-    {
-      name: 'Tạo Quiz',
-      icon: BookOpen,
-      color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-      prompt: 'Hãy tạo 5 câu hỏi trắc nghiệm (quiz) chất lượng cao dựa trên nội dung tài liệu này, có kèm đáp án và giải thích chi tiết cho từng câu.'
-    },
     {
       name: 'Tóm tắt sâu',
       icon: Sparkles,
@@ -263,7 +320,7 @@ const DocumentDetail = () => {
     <div className="max-w-[1600px] w-full mx-auto pb-12">
       {/* Header Back Button & Control Actions */}
       <div className="flex items-center justify-between mb-6">
-        <button 
+        <button
           onClick={() => navigate('/documents')}
           disabled={saving || aiLoading}
           className="flex items-center space-x-2 text-text-secondary hover:text-text-primary text-sm font-semibold transition-colors disabled:opacity-50"
@@ -271,16 +328,16 @@ const DocumentDetail = () => {
           <ArrowLeft className="w-4 h-4" />
           <span>Quay lại</span>
         </button>
-        
+
         {!isEditing ? (
           <div className="flex space-x-3">
-            <button 
+            <button
               onClick={() => setIsEditing(true)}
               className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm cursor-pointer"
             >
               Chỉnh sửa tài liệu
             </button>
-            <button 
+            <button
               onClick={() => setIsConfirmOpen(true)}
               className="flex items-center space-x-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 bg-surface border border-red-200 dark:border-red-900/30 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
             >
@@ -290,23 +347,23 @@ const DocumentDetail = () => {
           </div>
         ) : (
           <div className="flex space-x-3">
-            <button 
+            <button
               onClick={handleAiReanalyze}
               disabled={aiLoading}
               className="bg-[#52B788] hover:bg-[#409c71] disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm flex items-center space-x-1 cursor-pointer"
             >
-              {aiLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1"/> : null}
+              {aiLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               <span>✨ AI tự động điền</span>
             </button>
-            <button 
+            <button
               onClick={handleSave}
               disabled={saving || aiLoading}
               className="bg-primary hover:bg-primary-dark disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm flex items-center space-x-1 cursor-pointer"
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1"/> : null}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
               <span>Lưu lại</span>
             </button>
-            <button 
+            <button
               onClick={() => setIsEditing(false)}
               disabled={saving || aiLoading}
               className="bg-surface hover:bg-black/5 dark:hover:bg-white/5 border border-border text-text-secondary px-4 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer"
@@ -318,7 +375,7 @@ const DocumentDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* LEFT COLUMN: Document Detail & Summaries */}
         <div className="lg:col-span-2 space-y-6">
           {isEditing ? (
@@ -330,8 +387,8 @@ const DocumentDetail = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-text-primary mb-2">Tiêu đề tài liệu</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   disabled={saving || aiLoading}
@@ -342,8 +399,8 @@ const DocumentDetail = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-text-primary mb-2">Danh mục (Subject Tag)</label>
-                <select 
-                  value={editSubject} 
+                <select
+                  value={editSubject}
                   onChange={(e) => setEditSubject(e.target.value)}
                   disabled={saving || aiLoading}
                   className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition cursor-pointer"
@@ -359,7 +416,7 @@ const DocumentDetail = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-text-primary mb-2">Bản tóm tắt nội dung tài liệu (Summary)</label>
-                <textarea 
+                <textarea
                   value={editSummary}
                   onChange={(e) => setEditSummary(e.target.value)}
                   disabled={saving || aiLoading}
@@ -384,36 +441,66 @@ const DocumentDetail = () => {
                 <h1 className="text-3xl font-extrabold text-text-primary mb-6">{doc.title}</h1>
 
                 <h2 className="text-lg font-bold text-text-primary mb-4">Tóm tắt nội dung</h2>
-                <div className="text-text-secondary text-sm leading-relaxed whitespace-pre-wrap">
+                <div
+                  onMouseUp={handleTextSelection}
+                  className="text-text-secondary text-sm leading-relaxed whitespace-pre-wrap select-text p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl cursor-text transition-colors"
+                  title="Bôi đen văn bản để tạo highlight & ghi chú"
+                >
                   {doc.summary || 'Tài liệu đang xử lý tóm tắt. Vui lòng thử lại sau.'}
                 </div>
 
-                {/* Quiz AI Activation Panel */}
+                {/* Proposal 4: Highlights and Annotations List */}
+                {annotations.length > 0 && (
+                  <div className="mt-6 border-t border-border pt-4">
+                    <h4 className="text-sm font-bold text-text-primary mb-3 flex items-center space-x-2">
+                      <Bookmark className="w-4.5 h-4.5 text-primary" />
+                      <span>Đoạn quan trọng đã Highlight & Ghi chú ({annotations.length})</span>
+                    </h4>
+                    <div className="space-y-3">
+                      {annotations.map(ann => (
+                        <div key={ann.id} style={{ borderLeftColor: ann.color || '#ffeb3b' }} className="border-l-4 bg-background dark:bg-slate-900 border border-border rounded-xl p-3 flex justify-between items-start gap-4">
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold text-text-primary bg-primary/5 p-1.5 rounded-lg italic">"{ann.selected_text}"</p>
+                            {ann.note && <p className="text-xs text-text-secondary font-medium">📝 Ghi chú: {ann.note}</p>}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteAnnotation(ann.id)}
+                            className="text-text-secondary hover:text-red-500 text-xs shrink-0 cursor-pointer font-semibold"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Proposal 2: AI Flashcards Activation Panel */}
                 <div className="mt-8 border-t border-border pt-6">
-                  <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+                  <div className="bg-gradient-to-r from-primary/10 to-[#52B788]/10 border border-primary/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
-                        <span className="text-emerald-500 font-extrabold text-xs flex items-center space-x-1 uppercase tracking-wider">
+                        <span className="text-primary font-extrabold text-xs flex items-center space-x-1 uppercase tracking-wider">
                           <Sparkles className="w-3.5 h-3.5" />
-                          <span>Tính năng PRO đặc biệt</span>
+                          <span>Học Tập Thông Minh</span>
                         </span>
                       </div>
-                      <h4 className="font-extrabold text-text-primary text-base">Tạo trắc nghiệm ôn tập (Quiz AI)</h4>
-                      <p className="text-xs text-text-secondary">Gemini AI sẽ tự động phân tích tài liệu và soạn thảo bộ 5 câu hỏi trắc nghiệm để bạn rèn luyện kiến thức hiệu quả.</p>
+                      <h4 className="font-extrabold text-text-primary text-base">Tạo thẻ ghi nhớ thông minh</h4>
+                      <p className="text-xs text-text-secondary">AI sẽ tự động rút trích các kiến thức trọng tâm tạo thành bộ 8 thẻ ôn tập Flashcards học nhanh nhớ lâu.</p>
                     </div>
 
                     <button
-                      onClick={handleStartQuiz}
-                      disabled={generatingQuiz}
-                      className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs py-3 px-5 rounded-xl transition-all shadow-md shadow-emerald-500/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] flex items-center space-x-2 disabled:opacity-70"
+                      onClick={handleGenerateFlashcards}
+                      disabled={generatingFlashcards}
+                      className="bg-gradient-to-r from-primary to-[#52B788] hover:from-primary-dark text-white font-black text-xs py-3 px-5 rounded-xl transition-all shadow-md shadow-primary/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] flex items-center space-x-2 disabled:opacity-70"
                     >
-                      {generatingQuiz ? (
+                      {generatingFlashcards ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Đang khởi tạo...</span>
+                          <span>Đang tạo thẻ...</span>
                         </>
                       ) : (
-                        <span>Bắt đầu làm Quiz AI 🧠</span>
+                        <span>Tạo bộ thẻ</span>
                       )}
                     </button>
                   </div>
@@ -432,9 +519,9 @@ const DocumentDetail = () => {
             </div>
             <div className="p-6 space-y-4">
               {relatedDocs.map((rdoc, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => navigate(`/documents/${rdoc.id}`)} 
+                <div
+                  key={idx}
+                  onClick={() => navigate(`/documents/${rdoc.id}`)}
                   className="flex justify-between items-center text-sm border-b border-border dark:border-slate-800 pb-4 last:border-0 last:pb-0 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 p-2 transition-colors rounded"
                 >
                   <div>
@@ -461,94 +548,187 @@ const DocumentDetail = () => {
         {/* RIGHT COLUMN: AI Document Analyzer & Studio */}
         <div className="lg:col-span-1 flex flex-col h-[calc(100vh-140px)] min-h-[600px] sticky top-4">
           <div className="bg-surface border border-border rounded-xl flex-1 flex flex-col p-5 shadow-[0_2px_15px_rgba(0,0,0,0.02)] overflow-hidden">
-            
-            {/* AI Assistant Header */}
-            <div className="border-b border-border pb-4 mb-4 flex items-center justify-between shrink-0">
-              <div className="flex items-center space-x-2">
-                <MessageSquare className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-text-primary">Hỏi đáp & AI Studio</h3>
-              </div>
-              <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full">
-                AI ACTIVE
-              </span>
-            </div>
 
-            {/* AI Studio Quick Toolbar */}
-            <div className="mb-4 shrink-0">
-              <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-2">Studio Câu Lệnh Nhanh</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {studioCommands.map((cmd, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSendChat(cmd.prompt)}
-                    disabled={chatLoading}
-                    className={`flex items-center space-x-1.5 p-2 rounded-lg text-xs font-semibold border text-left cursor-pointer transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 ${cmd.color}`}
-                  >
-                    <cmd.icon className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{cmd.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Dynamic Chat Messages Block */}
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1 custom-scrollbar">
-              {chatMessages.map((msg, idx) => (
-                <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                  {msg.role === 'ai' && (
-                    <span className="text-[9px] font-bold text-primary mb-1 uppercase tracking-wider pl-1">ARKA ASSISTANT</span>
-                  )}
-                  <div className={`p-3 text-xs leading-relaxed max-w-[90%] rounded-xl whitespace-pre-wrap shadow-sm ${
-                    msg.role === 'user' 
-                      ? 'bg-primary text-white rounded-tr-sm' 
-                      : 'bg-black/5 dark:bg-white/5 text-text-primary rounded-tl-sm border border-border'
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-              {chatLoading && (
-                <div className="flex items-start">
-                  <div className="bg-black/5 dark:bg-white/5 border border-border rounded-xl rounded-tl-sm p-3 text-xs">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Chat Input Field */}
-            <div className="border-t border-border pt-4 shrink-0">
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                  placeholder="Hỏi bất kỳ điều gì về tài liệu này..."
-                  className="flex-1 text-xs bg-background border border-border rounded-lg px-3 py-2.5 focus:outline-none focus:border-primary transition"
-                />
+            {/* Right Panel Tabs */}
+            <div className="border-b border-border pb-3 mb-4 flex items-center justify-between shrink-0">
+              <div className="flex space-x-4">
                 <button
-                  onClick={() => handleSendChat()}
-                  disabled={chatLoading || !chatInput.trim()}
-                  className="bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg flex items-center justify-center shrink-0 disabled:opacity-50 transition cursor-pointer"
+                  onClick={() => setActiveTab('ai')}
+                  className={`text-sm font-bold pb-2 transition cursor-pointer ${activeTab === 'ai' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-text-primary'}`}
                 >
-                  <Send className="w-4 h-4" />
+                  Trò chuyện AI
+                </button>
+                <button
+                  onClick={() => { setActiveTab('comments'); fetchComments(); }}
+                  className={`text-sm font-bold pb-2 transition cursor-pointer ${activeTab === 'comments' ? 'text-primary border-b-2 border-primary' : 'text-text-secondary hover:text-text-primary'}`}
+                >
+                  Thảo luận nhóm
                 </button>
               </div>
             </div>
+
+            {activeTab === 'ai' ? (
+              <>
+                {/* AI Studio Quick Toolbar */}
+                <div className="mb-4 shrink-0">
+                  <h4 className="text-[11px] font-bold text-text-secondary uppercase tracking-wider mb-2">Studio Câu Lệnh Nhanh</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {studioCommands.map((cmd, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSendChat(cmd.prompt)}
+                        disabled={chatLoading}
+                        className={`flex items-center space-x-1.5 p-2 rounded-lg text-xs font-semibold border text-left cursor-pointer transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 ${cmd.color}`}
+                      >
+                        <cmd.icon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{cmd.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Dynamic Chat Messages Block */}
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1 custom-scrollbar">
+                  {chatMessages.map((msg, idx) => (
+                    <div key={idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                      {msg.role === 'ai' && (
+                        <span className="text-[9px] font-bold text-primary mb-1 uppercase tracking-wider pl-1">ARKA ASSISTANT</span>
+                      )}
+                      <div className={`p-3 text-xs leading-relaxed max-w-[90%] rounded-xl whitespace-pre-wrap shadow-sm ${msg.role === 'user'
+                        ? 'bg-primary text-white rounded-tr-sm'
+                        : 'bg-black/5 dark:bg-white/5 text-text-primary rounded-tl-sm border border-border'
+                        }`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex items-start">
+                      <div className="bg-black/5 dark:bg-white/5 border border-border rounded-xl rounded-tl-sm p-3 text-xs">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Chat Input Field */}
+                <div className="border-t border-border pt-4 shrink-0">
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                      placeholder="Hỏi bất kỳ điều gì về tài liệu này..."
+                      className="flex-1 text-xs bg-background border border-border rounded-lg px-3 py-2.5 focus:outline-none focus:border-primary transition"
+                    />
+                    <button
+                      onClick={() => handleSendChat()}
+                      disabled={chatLoading || !chatInput.trim()}
+                      className="bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg flex items-center justify-center shrink-0 disabled:opacity-50 transition cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Group Comments Area */}
+                <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1 custom-scrollbar">
+                  {commentsLoading ? (
+                    <div className="flex justify-center items-center h-20">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center py-10 text-text-secondary text-xs italic">
+                      Chưa có thảo luận nào. Hãy gửi bình luận đầu tiên dưới đây để trao đổi học tập!
+                    </div>
+                  ) : (
+                    comments.map(c => (
+                      <div key={c.id} className="bg-black/5 dark:bg-white/5 border border-border rounded-xl p-3 space-y-1">
+                        <div className="flex justify-between items-center text-[10px]">
+                          <span className="font-bold text-text-primary">{c.users?.name || c.users?.email}</span>
+                          <span className="text-text-secondary">{new Date(c.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <p className="text-xs text-text-primary leading-normal">{c.content}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Comment Input Box */}
+                <form onSubmit={handleSendComment} className="border-t border-border pt-4 shrink-0 flex space-x-2">
+                  <input
+                    type="text"
+                    value={commentInput}
+                    onChange={e => setCommentInput(e.target.value)}
+                    placeholder="Nhập nội dung thảo luận với nhóm..."
+                    className="flex-1 text-xs bg-background border border-border rounded-lg px-3 py-2.5 focus:outline-none focus:border-primary transition"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!commentInput.trim()}
+                    className="bg-primary hover:bg-primary-dark text-white px-3 py-2 rounded-lg flex items-center justify-center shrink-0 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </>
+            )}
 
           </div>
         </div>
 
       </div>
 
-      <ConfirmModal 
-         isOpen={isConfirmOpen}
-         onClose={() => setIsConfirmOpen(false)}
-         onConfirm={handleConfirmDelete}
-         title="Xóa tài liệu này?"
-         message="Hành động này sẽ xóa vĩnh viễn cấu trúc dữ liệu và gỡ bỏ toàn bộ liên kết đồ thị tri thức của tài liệu này ra khỏi hệ thống."
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Xóa tài liệu này?"
+        message="Hành động này sẽ xóa vĩnh viễn cấu trúc dữ liệu và gỡ bỏ toàn bộ liên kết đồ thị tri thức của tài liệu này ra khỏi hệ thống."
       />
+
+      {/* Proposal 4: Highlight Annotation Modal */}
+      {showAnnotationModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[300]">
+          <div className="bg-surface border border-border w-full max-w-md p-6 rounded-3xl shadow-xl space-y-4">
+            <h3 className="text-base font-bold text-text-primary">Thêm ghi chú cho đoạn Highlight</h3>
+            <div className="bg-background border border-border rounded-xl p-3 text-xs italic text-text-secondary leading-relaxed">
+              "{selectedText}"
+            </div>
+            <form onSubmit={handleSaveAnnotation} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-text-secondary">Nội dung ghi chú cá nhân</label>
+                <textarea
+                  value={annotationNote}
+                  onChange={e => setAnnotationNote(e.target.value)}
+                  placeholder="Ghi nhận kiến thức cốt lõi, công thức, định nghĩa cần ôn tập..."
+                  rows={3}
+                  className="w-full bg-background border border-border rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-primary text-text-primary resize-none"
+                  autoFocus
+                />
+              </div>
+              <div className="flex space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowAnnotationModal(false); setSelectedText(''); }}
+                  className="flex-1 py-2 border border-border text-text-secondary rounded-xl text-xs font-semibold cursor-pointer hover:bg-black/5 transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-primary text-white rounded-xl text-xs font-semibold cursor-pointer hover:bg-primary-dark transition"
+                >
+                  Lưu ghi chú
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

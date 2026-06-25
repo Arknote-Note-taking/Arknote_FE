@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import MainLayout from './layouts/MainLayout';
 
 // Initialize dark mode from localStorage before anything renders
@@ -34,6 +35,7 @@ import PaymentCancel from './pages/PaymentCancel';
 import OnboardingModal from './components/OnboardingModal';
 import QuizHistory from './pages/QuizHistory';
 import TakeQuiz from './pages/TakeQuiz';
+import Flashcards from './pages/Flashcards';
 
 const PrivateRoute = ({ children }) => {
   const { user } = useContext(AuthContext);
@@ -81,6 +83,7 @@ const AppContent = () => {
         <Route path="/payment-cancel" element={<PrivateRoute><PaymentCancel /></PrivateRoute>} />
         <Route path="/quizzes" element={<PrivateRoute><QuizHistory /></PrivateRoute>} />
         <Route path="/quizzes/:id" element={<PrivateRoute><TakeQuiz /></PrivateRoute>} />
+        <Route path="/flashcards" element={<PrivateRoute><Flashcards /></PrivateRoute>} />
         <Route path="/users" element={user && user.role === 'admin' ? <PrivateRoute><UserManagement /></PrivateRoute> : <Navigate to="/dashboard" />} />
       </Routes>
     </Router>
@@ -97,9 +100,11 @@ function App() {
            fontSize: '14px',
          },
       }}/>
-      <SocketProvider>
-        <AppContent />
-      </SocketProvider>
+      <ConfirmProvider>
+        <SocketProvider>
+          <AppContent />
+        </SocketProvider>
+      </ConfirmProvider>
     </AuthProvider>
   );
 }

@@ -175,9 +175,17 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('user_notification', (data) => {
         console.log('Received user_notification on client:', data);
         if (data.recipient_id === user.id) {
+          addNotification(data);
           if (data.type === 'document_restored' || data.type === 'user_restored') {
             toast.success(data.message, { duration: 6000, icon: '🎉' });
-            addNotification(data);
+          } else if (data.type === 'folder_shared') {
+            toast.success(data.message, { duration: 6000, icon: '📁' });
+          } else if (data.type === 'folder_unshared') {
+            toast.error(data.message, { duration: 6000, icon: '🚫' });
+          } else if (data.type === 'document_comment') {
+            toast(data.message, { duration: 5000, icon: '💬' });
+          } else {
+            toast(data.message, { duration: 5000 });
           }
         }
       });

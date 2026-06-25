@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import API from '../services/api';
-import { X, Folder, FileText, Loader2, Trash2, ArrowRight, FolderMinus, Plus, Edit2 } from 'lucide-react';
+import { X, Folder, FileText, Loader2, Trash2, ArrowRight, FolderMinus, Plus, Edit2, Send, Share2, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
 import DocumentSelectModal from './DocumentSelectModal';
+import { AuthContext } from '../context/AuthContext';
 
 const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
   const [folder, setFolder] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Sharing states
+  const [showShareSection, setShowShareSection] = useState(false);
+  const [shares, setShares] = useState([]);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareRole, setShareRole] = useState('viewer');
 
   // States for adding documents to folder
   const [allDocs, setAllDocs] = useState([]);
@@ -24,6 +32,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   useEffect(() => {
     setSelectedDocIds([]);
     setIsEditingName(false);
+    setShowShareSection(false);
   }, [isOpen, folderId]);
 
   const handleRenameFolder = async (e) => {
@@ -103,11 +112,50 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
     try {
       const res = await API.get(`/documents/folders/${folderId}`);
       setFolder(res.data);
+      if (res.data && res.data.user_id === user?.id) {
+        fetchShares();
+      }
     } catch (err) {
       toast.error('Lỗi khi tải chi tiết thư mục!');
       onClose();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchShares = async () => {
+    try {
+      const res = await API.get(`/shares/folders/${folderId}/shares`);
+      setShares(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleShareFolder = async (e) => {
+    e.preventDefault();
+    if (!shareEmail.trim()) return toast.error('Vui lòng điền email!');
+    try {
+      await API.post('/shares/folders/share', {
+        folderId,
+        sharedToEmail: shareEmail.trim(),
+        permissionRole: shareRole
+      });
+      toast.success('Chia sẻ thư mục thành công!');
+      setShareEmail('');
+      fetchShares();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Lỗi khi chia sẻ thư mục.');
+    }
+  };
+
+  const handleRevokeShare = async (shareId) => {
+    try {
+      await API.delete(`/shares/folders/shares/${shareId}`);
+      toast.success('Đã thu hồi quyền truy cập.');
+      fetchShares();
+    } catch (err) {
+      toast.error('Không thể thu hồi quyền chia sẻ.');
     }
   };
 
@@ -264,6 +312,15 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
               </div>
 
               <div className="flex items-center space-x-2 shrink-0">
+                {folder.user_id === user?.id && (
+                  <button
+                    onClick={() => setShowShareSection(!showShareSection)}
+                    className="flex items-center space-x-1 bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>Chia sẻ</span>
+                  </button>
+                )}
                 <button
                   onClick={handleOpenAddDocModal}
                   className="flex items-center space-x-1 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
@@ -271,15 +328,71 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                   <Plus className="w-3.5 h-3.5" />
                   <span>Thêm tài liệu</span>
                 </button>
-                <button
-                  onClick={handleDeleteFolder}
-                  className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Xóa thư mục</span>
-                </button>
+                {folder.user_id === user?.id && (
+                  <button
+                    onClick={handleDeleteFolder}
+                    className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa thư mục</span>
+                  </button>
+                )}
               </div>
             </div>
+
+            {/* Sharing UI Section */}
+            {showShareSection && folder.user_id === user?.id && (
+              <div className="bg-background border border-border rounded-2xl p-4 mb-4 shrink-0 space-y-3">
+                <h4 className="text-xs font-bold text-text-primary flex items-center space-x-1.5">
+                  <Users className="w-4 h-4 text-primary" />
+                  <span>Quản lý chia sẻ thành viên nhóm</span>
+                </h4>
+                <form onSubmit={handleShareFolder} className="flex gap-2">
+                  <input
+                    type="email"
+                    placeholder="Nhập email bạn học..."
+                    value={shareEmail}
+                    onChange={e => setShareEmail(e.target.value)}
+                    className="bg-surface border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary text-text-primary flex-1"
+                  />
+                  <select
+                    value={shareRole}
+                    onChange={e => setShareRole(e.target.value)}
+                    className="bg-surface border border-border rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-primary text-text-primary"
+                  >
+                    <option value="viewer">Viewer (Xem)</option>
+                    <option value="editor">Editor (Sửa)</option>
+                  </select>
+                  <button
+                    type="submit"
+                    className="bg-primary hover:bg-primary-dark text-white rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer flex items-center space-x-1"
+                  >
+                    <Send className="w-3 h-3" />
+                    <span>Gửi</span>
+                  </button>
+                </form>
+                
+                {/* List of current shares */}
+                {shares.length > 0 && (
+                  <div className="max-h-24 overflow-y-auto divide-y divide-border pr-1 custom-scrollbar">
+                    {shares.map(sh => (
+                      <div key={sh.id} className="py-1.5 flex items-center justify-between text-[11px]">
+                        <span className="text-text-primary font-medium">{sh.shared_to_email}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-text-secondary px-2 py-0.5 rounded-full capitalize">{sh.permission_role}</span>
+                          <button
+                            onClick={() => handleRevokeShare(sh.id)}
+                            className="text-red-500 hover:underline cursor-pointer"
+                          >
+                            Thu hồi
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Bulk actions and list header */}
             {folder.documents?.length > 0 && (

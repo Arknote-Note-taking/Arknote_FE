@@ -4,9 +4,11 @@ import toast from 'react-hot-toast';
 import { Folder, FolderPlus, Trash2, FileText, Send, Loader2, MessageSquare, ArrowLeft, Plus, Edit2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DocumentSelectModal from '../components/DocumentSelectModal';
+import { useConfirm } from '../context/ConfirmContext';
 
 const Folders = () => {
   const navigate = useNavigate();
+  const { confirm } = useConfirm();
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newFolderName, setNewFolderName] = useState('');
@@ -43,7 +45,8 @@ const Folders = () => {
 
   const handleBulkRemoveDocs = async () => {
     if (selectedDocIds.length === 0) return;
-    if (!window.confirm(`Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?`)) return;
+    const isConfirmed = await confirm(`Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?`);
+    if (!isConfirmed) return;
     try {
       await Promise.all(selectedDocIds.map(docId => API.put(`/documents/${docId}`, { folder_id: null })));
       toast.success(`Đã loại bỏ thành công ${selectedDocIds.length} tài liệu!`);
@@ -64,15 +67,15 @@ const Folders = () => {
   const [chatLoading, setChatLoading] = useState(false);
   const chatContainerRef = useRef(null);
 
-  const fetchFolders = async () => {
-    setLoading(true);
+  const fetchFolders = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await API.get('/documents/folders');
       setFolders(res.data);
     } catch (err) {
       toast.error('Lỗi khi tải danh sách thư mục!');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -118,14 +121,15 @@ const Folders = () => {
   };
 
   const handleDeleteFolder = async (folderId) => {
-    if (!window.confirm('Bạn có chắc muốn xóa thư mục này? (Các tài liệu bên trong sẽ không bị xóa, chỉ được đưa ra ngoài thư mục)')) return;
+    const isConfirmed = await confirm('Bạn có chắc muốn xóa thư mục này? (Các tài liệu bên trong sẽ không bị xóa, chỉ được đưa ra ngoài thư mục)');
+    if (!isConfirmed) return;
     try {
       await API.delete(`/documents/folders/${folderId}`);
       toast.success('Đã xóa thư mục!');
       if (selectedFolder && selectedFolder.id === folderId) {
         setSelectedFolder(null);
       }
-      fetchFolders();
+      fetchFolders(true);
     } catch (err) {
       toast.error('Xóa thư mục thất bại');
     }
@@ -200,7 +204,8 @@ const Folders = () => {
 
   const handleRemoveDocFromFolder = async (e, docId) => {
     e.stopPropagation();
-    if (!window.confirm('Bạn có chắc muốn loại bỏ tài liệu này khỏi thư mục?')) return;
+    const isConfirmed = await confirm('Bạn có chắc muốn loại bỏ tài liệu này khỏi thư mục?');
+    if (!isConfirmed) return;
     try {
       await API.put(`/documents/${docId}`, { folder_id: null });
       toast.success('Đã loại bỏ tài liệu khỏi thư mục!');
