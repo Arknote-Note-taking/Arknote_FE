@@ -62,7 +62,7 @@ const MainLayout = ({ children }) => {
 
   const navItems = user?.role === 'admin'
     ? [
-      ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph' && item.path !== '/flashcards'),
+      ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph'),
       { name: 'Khách hàng', path: '/users', icon: Users }
     ]
     : baseNavItems;

@@ -500,7 +500,7 @@ const DocumentDetail = () => {
                           <span>Đang tạo thẻ...</span>
                         </>
                       ) : (
-                        <span>Tạo bộ thẻ</span>
+                        <span>Tạo flashcards</span>
                       )}
                     </button>
                   </div>

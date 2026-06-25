@@ -260,7 +260,7 @@ const QuizHistory = () => {
                           ) : (
                             <>
                               <AlertCircle className="w-3 h-3" />
-                              <span>Đang làm dở</span>
+                              <span>Đang làm</span>
                             </>
                           )}
                         </span>
@@ -348,8 +348,8 @@ const QuizHistory = () => {
                         key={pageNum}
                         onClick={() => setAttemptsPage(pageNum)}
                         className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${attemptsPage === pageNum
-                            ? 'bg-primary text-white shadow-sm border border-primary'
-                            : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                          ? 'bg-primary text-white shadow-sm border border-primary'
+                          : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
                           }`}
                       >
                         {pageNum}
@@ -475,8 +475,8 @@ const QuizHistory = () => {
                         key={pageNum}
                         onClick={() => setQuizzesPage(pageNum)}
                         className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${quizzesPage === pageNum
-                            ? 'bg-primary text-white shadow-sm border border-primary'
-                            : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                          ? 'bg-primary text-white shadow-sm border border-primary'
+                          : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
                           }`}
                       >
                         {pageNum}
@@ -557,7 +557,7 @@ const QuizHistory = () => {
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                                 : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
                                 }`}>
-                                {att.is_completed ? 'Hoàn thành' : 'Đang làm dở'}
+                                {att.is_completed ? 'Hoàn thành' : 'Đang làm'}
                               </span>
                             </td>
                             <td className="py-3.5 px-4 font-black text-sm text-primary">

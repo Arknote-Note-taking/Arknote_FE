@@ -8,7 +8,7 @@ import { useConfirm } from '../context/ConfirmContext';
 
 const Flashcards = () => {
   const navigate = useNavigate();
-  const { refreshProfile } = useContext(AuthContext);
+  const { user, refreshProfile } = useContext(AuthContext);
   const { confirm } = useConfirm();
   const [decks, setDecks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -251,23 +251,32 @@ const Flashcards = () => {
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <h3 className="font-bold text-text-primary text-base group-hover:text-primary transition-colors line-clamp-1 flex-1">{deck.title}</h3>
-                      <div className="flex items-center space-x-1 shrink-0">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleOpenEditModal(deck); }}
-                          className="p-1 rounded text-text-secondary hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-                          title="Sửa bộ thẻ"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDeleteDeck(deck.id); }}
-                          className="p-1 rounded text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
-                          title="Xóa bộ thẻ"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                      {(deck.user_id === user?.id || user?.role === 'admin') && (
+                        <div className="flex items-center space-x-1 shrink-0">
+                          {deck.user_id === user?.id && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleOpenEditModal(deck); }}
+                              className="p-1 rounded text-text-secondary hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+                              title="Sửa bộ thẻ"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDeleteDeck(deck.id); }}
+                            className="p-1 rounded text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                            title="Xóa bộ thẻ"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
+                    {user?.role === 'admin' && deck.users && (
+                      <div className="text-[11px] text-primary font-bold line-clamp-1" title={`${deck.users.name || 'N/A'} (${deck.users.email})`}>
+                        Sở hữu: {deck.users.name || 'Chưa đặt tên'} ({deck.users.email})
+                      </div>
+                    )}
                     {deck.description && !deck.description.startsWith('Tạo tự động bằng AI từ tài liệu') ? (
                       <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">{deck.description}</p>
                     ) : (
@@ -303,7 +312,7 @@ const Flashcards = () => {
               <ArrowLeft className="w-4 h-4" />
               <span>Quay lại danh sách</span>
             </button>
-            {cards.length > 0 && (
+            {cards.length > 0 && user?.role !== 'admin' && (
               <button
                 onClick={handleCreateQuiz}
                 disabled={generatingQuiz}
@@ -428,13 +437,15 @@ const Flashcards = () => {
             <div className="space-y-4 animate-fade-in">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-bold text-text-primary">Tất cả các thẻ trong bộ</h3>
-                <button
-                  onClick={() => { setEditingCard(null); setCardFront(''); setCardBack(''); setShowCardModal(true); }}
-                  className="flex items-center space-x-1.5 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Thêm thẻ mới</span>
-                </button>
+                {activeDeck?.user_id === user?.id && (
+                  <button
+                    onClick={() => { setEditingCard(null); setCardFront(''); setCardBack(''); setShowCardModal(true); }}
+                    className="flex items-center space-x-1.5 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Thêm thẻ mới</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar">
@@ -449,22 +460,26 @@ const Flashcards = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button
-                        onClick={() => handleOpenEditCard(card)}
-                        className="p-1.5 rounded text-text-secondary hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
-                        title="Sửa thẻ"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCard(card.id)}
-                        className="p-1.5 rounded text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
-                        title="Xóa thẻ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {(activeDeck?.user_id === user?.id || user?.role === 'admin') && (
+                      <div className="flex items-center space-x-1 shrink-0">
+                        {activeDeck?.user_id === user?.id && (
+                          <button
+                            onClick={() => handleOpenEditCard(card)}
+                            className="p-1.5 rounded text-text-secondary hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+                            title="Sửa thẻ"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteCard(card.id)}
+                          className="p-1.5 rounded text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                          title="Xóa thẻ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
 

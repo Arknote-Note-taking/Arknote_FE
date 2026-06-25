@@ -499,7 +499,7 @@ const DocumentList = () => {
             <div>
               <h4 className="font-bold text-text-primary text-sm">Giới hạn tải lên tài liệu</h4>
               <p className="text-xs text-text-secondary mt-0.5">
-                Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / 5</strong> tài liệu miễn phí.
+                Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / 50</strong> tài liệu miễn phí.
               </p>
             </div>
           </div>
