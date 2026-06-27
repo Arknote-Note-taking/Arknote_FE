@@ -5,7 +5,7 @@ import { Users, Trash2, Loader2, ShieldAlert, RotateCcw, HelpCircle, ChevronLeft
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
 
-const USER_PAGE_SIZE = 7;
+const USER_PAGE_SIZE = 10;
 
 // Reusable Pagination Component
 const Pagination = ({ currentPage, totalPages, onPageChange }) => {
@@ -196,7 +196,7 @@ const UserManagement = () => {
   }
 
   return (
-    <div className="max-w-[1600px] w-full mx-auto h-full flex flex-col">
+    <div className="max-w-[1600px] w-full mx-auto flex flex-col pb-12">
       <h1 className="text-2xl font-bold text-text-primary mb-1">Quản lý hệ thống (Admin Console)</h1>
       <p className="text-text-secondary text-sm mb-6">Thống kê, kiểm soát và khôi phục tài khoản người dùng đã xóa</p>
 
@@ -315,7 +315,16 @@ const UserManagement = () => {
                   <tbody>
                     {pagedDeletedUsers.map((u) => (
                       <tr key={u.id} className="border-b border-border hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-text-primary">{u.name || 'No Name'}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-semibold text-text-primary">{u.name || 'No Name'}</span>
+                            {u.restore_requested && (
+                              <span className="text-[9px] font-semibold text-amber-600 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full leading-none animate-pulse whitespace-nowrap">
+                                Đang yêu cầu khôi phục
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4">{u.email}</td>
                         <td className="px-6 py-4">
                           <span className={`px-2 py-1 rounded text-xs font-bold ${u.role === 'admin'

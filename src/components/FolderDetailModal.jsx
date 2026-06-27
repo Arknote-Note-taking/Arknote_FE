@@ -159,6 +159,16 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
     }
   };
 
+  const handleChangeSharePermission = async (shareId, newRole) => {
+    try {
+      await API.put(`/shares/folders/shares/${shareId}`, { permissionRole: newRole });
+      toast.success('Cập nhật quyền truy cập thành công!');
+      fetchShares();
+    } catch (err) {
+      toast.error('Không thể cập nhật quyền chia sẻ.');
+    }
+  };
+
   useEffect(() => {
     if (isOpen && folderId) {
       fetchFolderDetails();
@@ -377,12 +387,19 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                   <div className="max-h-24 overflow-y-auto divide-y divide-border pr-1 custom-scrollbar">
                     {shares.map(sh => (
                       <div key={sh.id} className="py-1.5 flex items-center justify-between text-[11px]">
-                        <span className="text-text-primary font-medium">{sh.shared_to_email}</span>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-[9px] bg-slate-100 dark:bg-slate-800 text-text-secondary px-2 py-0.5 rounded-full capitalize">{sh.permission_role}</span>
+                        <span className="text-text-primary font-medium truncate max-w-[240px]">{sh.shared_to_email}</span>
+                        <div className="flex items-center space-x-3 shrink-0">
+                          <select
+                            value={sh.permission_role}
+                            onChange={(e) => handleChangeSharePermission(sh.id, e.target.value)}
+                            className="bg-slate-100 dark:bg-slate-800 text-text-secondary text-[10px] px-2 py-1 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary border border-border cursor-pointer font-bold"
+                          >
+                            <option value="viewer">Viewer (Xem)</option>
+                            <option value="editor">Editor (Sửa)</option>
+                          </select>
                           <button
                             onClick={() => handleRevokeShare(sh.id)}
-                            className="text-red-500 hover:underline cursor-pointer"
+                            className="text-red-500 hover:text-red-600 font-bold transition cursor-pointer"
                           >
                             Thu hồi
                           </button>

@@ -57,7 +57,7 @@ const Dashboard = () => {
     if (!socket) return;
     
     const handleCreated = (newDoc) => setDocuments(docs => [newDoc, ...docs]);
-    const handleUpdated = (updatedDoc) => setDocuments(docs => docs.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+    const handleUpdated = (updatedDoc) => setDocuments(docs => docs.map(d => d.id === updatedDoc.id ? { ...d, ...updatedDoc, is_pinned: d.is_pinned } : d));
     const handleDeleted = ({ id }) => setDocuments(docs => docs.filter(d => d.id !== id));
 
     socket.on('document_created', handleCreated);

@@ -313,6 +313,8 @@ const DocumentDetail = () => {
     }
   ];
 
+  const canEditDoc = doc && (doc.user_id === user?.id || doc.canEdit || user?.role === 'admin');
+
   if (loading) return <div className="flex h-full items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   if (!doc) return <div className="text-center mt-12 text-text-secondary">Tài liệu không tồn tại hoặc đã bị xóa.</div>;
 
@@ -331,19 +333,23 @@ const DocumentDetail = () => {
 
         {!isEditing ? (
           <div className="flex space-x-3">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm cursor-pointer"
-            >
-              Chỉnh sửa tài liệu
-            </button>
-            <button
-              onClick={() => setIsConfirmOpen(true)}
-              className="flex items-center space-x-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 bg-surface border border-red-200 dark:border-red-900/30 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Xóa</span>
-            </button>
+            {canEditDoc && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm cursor-pointer"
+              >
+                Chỉnh sửa tài liệu
+              </button>
+            )}
+            {(doc.user_id === user?.id || user?.role === 'admin') && (
+              <button
+                onClick={() => setIsConfirmOpen(true)}
+                className="flex items-center space-x-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 bg-surface border border-red-200 dark:border-red-900/30 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Xóa</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="flex space-x-3">
@@ -476,35 +482,37 @@ const DocumentDetail = () => {
                 )}
 
                 {/* Proposal 2: AI Flashcards Activation Panel */}
-                <div className="mt-8 border-t border-border pt-6">
-                  <div className="bg-gradient-to-r from-primary/10 to-[#52B788]/10 border border-primary/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-primary font-extrabold text-xs flex items-center space-x-1 uppercase tracking-wider">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>Học Tập Thông Minh</span>
-                        </span>
+                {canEditDoc && (
+                  <div className="mt-8 border-t border-border pt-6">
+                    <div className="bg-gradient-to-r from-primary/10 to-[#52B788]/10 border border-primary/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-primary font-extrabold text-xs flex items-center space-x-1 uppercase tracking-wider">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Học Tập Thông Minh</span>
+                          </span>
+                        </div>
+                        <h4 className="font-extrabold text-text-primary text-base">Tạo thẻ ghi nhớ thông minh</h4>
+                        <p className="text-xs text-text-secondary">AI sẽ tự động rút trích các kiến thức trọng tâm tạo thành bộ 8 thẻ ôn tập Flashcards học nhanh nhớ lâu.</p>
                       </div>
-                      <h4 className="font-extrabold text-text-primary text-base">Tạo thẻ ghi nhớ thông minh</h4>
-                      <p className="text-xs text-text-secondary">AI sẽ tự động rút trích các kiến thức trọng tâm tạo thành bộ 8 thẻ ôn tập Flashcards học nhanh nhớ lâu.</p>
-                    </div>
 
-                    <button
-                      onClick={handleGenerateFlashcards}
-                      disabled={generatingFlashcards}
-                      className="bg-gradient-to-r from-primary to-[#52B788] hover:from-primary-dark text-white font-black text-xs py-3 px-5 rounded-xl transition-all shadow-md shadow-primary/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] flex items-center space-x-2 disabled:opacity-70"
-                    >
-                      {generatingFlashcards ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Đang tạo thẻ...</span>
-                        </>
-                      ) : (
-                        <span>Tạo flashcards</span>
-                      )}
-                    </button>
+                      <button
+                        onClick={handleGenerateFlashcards}
+                        disabled={generatingFlashcards}
+                        className="bg-gradient-to-r from-primary to-[#52B788] hover:from-primary-dark text-white font-black text-xs py-3 px-5 rounded-xl transition-all shadow-md shadow-primary/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] flex items-center space-x-2 disabled:opacity-70"
+                      >
+                        {generatingFlashcards ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Đang tạo thẻ...</span>
+                          </>
+                        ) : (
+                          <span>Tạo flashcards</span>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}

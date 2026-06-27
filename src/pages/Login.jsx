@@ -13,9 +13,12 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [showRestoreRequest, setShowRestoreRequest] = useState(false);
+  const [requestingRestore, setRequestingRestore] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setShowRestoreRequest(false);
     try {
       const res = await API.post('/auth/login', { email, password });
       login(res.data);
@@ -26,12 +29,27 @@ const Login = () => {
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || '';
-      // Supabase returns 'Invalid login credentials' for wrong email/password
-      if (errorMsg === 'Invalid login credentials' || errorMsg.includes('email') || errorMsg.includes('password')) {
+      if (errorMsg.includes('vô hiệu hóa') || errorMsg.includes('xóa khỏi hệ thống')) {
+        setShowRestoreRequest(true);
+        toast.error(errorMsg);
+      } else if (errorMsg === 'Invalid login credentials' || errorMsg.includes('email') || errorMsg.includes('password')) {
         toast.error('Email hoặc Password không chính xác');
       } else {
         toast.error(errorMsg || 'Đăng nhập thất bại');
       }
+    }
+  };
+
+  const handleRequestRestoreAccount = async () => {
+    setRequestingRestore(true);
+    try {
+      await API.post('/users/request-restore', { email });
+      toast.success('Đã gửi yêu cầu khôi phục tài khoản tới Admin thành công! 🎉');
+      setShowRestoreRequest(false);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Gửi yêu cầu khôi phục thất bại.');
+    } finally {
+      setRequestingRestore(false);
     }
   };
 
@@ -111,6 +129,22 @@ const Login = () => {
             Login
           </button>
         </form>
+
+        {showRestoreRequest && (
+          <div className="bg-amber-500/10 border border-amber-500/25 p-4 rounded-xl space-y-2 mt-5 text-center animate-fadeIn">
+            <p className="text-xs text-text-secondary leading-relaxed">
+              Tài khoản của bạn đang ở trạng thái bị vô hiệu hóa. Bạn có muốn gửi yêu cầu khôi phục tới Admin không?
+            </p>
+            <button
+              type="button"
+              onClick={handleRequestRestoreAccount}
+              disabled={requestingRestore}
+              className="bg-primary hover:bg-primary-dark disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer shadow-md inline-flex items-center space-x-1.5"
+            >
+              <span>{requestingRestore ? 'Đang gửi yêu cầu...' : 'Gửi yêu cầu khôi phục'}</span>
+            </button>
+          </div>
+        )}
 
         <div className="relative my-8">
           <div className="absolute inset-0 flex items-center">

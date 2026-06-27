@@ -28,8 +28,18 @@ export const SocketProvider = ({ children }) => {
       console.log('[Socket-Debug] GET /notifications response data:', res.data);
       // If we got a list from DB, use it and update fallback cache
       if (Array.isArray(res.data)) {
-        setNotifications(res.data);
-        localStorage.setItem(getUserKey(), JSON.stringify(res.data));
+        const parsed = res.data.map(notif => {
+          let docId = notif.doc_id || notif.docId;
+          if (notif.message && notif.message.includes('|||doc_id:')) {
+            docId = notif.message.split('|||doc_id:')[1];
+          }
+          return {
+            ...notif,
+            doc_id: docId
+          };
+        });
+        setNotifications(parsed);
+        localStorage.setItem(getUserKey(), JSON.stringify(parsed));
         return;
       } else {
         console.warn('[Socket-Debug] res.data is not an array:', res.data);
@@ -53,10 +63,22 @@ export const SocketProvider = ({ children }) => {
   };
 
   const addNotification = (notif) => {
+    const notifId = notif.id || notif._id || Date.now().toString() + '_' + Math.random().toString(36).substring(2, 5);
+    let docId = notif.doc_id || notif.docId;
+    if (notif.message && notif.message.includes('|||doc_id:')) {
+      docId = notif.message.split('|||doc_id:')[1];
+    }
+    const normalizedNotif = {
+      ...notif,
+      id: notifId,
+      recipient_id: notif.recipient_id || notif.recipientId,
+      doc_id: docId
+    };
+
     setNotifications((prev) => {
       // Avoid duplicate notifications by checking ID
-      if (prev.some((n) => n.id === notif.id)) return prev;
-      const updated = [notif, ...prev].slice(0, 50);
+      if (prev.some((n) => (n.id || n._id) === notifId)) return prev;
+      const updated = [normalizedNotif, ...prev].slice(0, 50);
       localStorage.setItem(getUserKey(), JSON.stringify(updated));
       return updated;
     });
@@ -173,11 +195,20 @@ export const SocketProvider = ({ children }) => {
 
       // User Notifications
       newSocket.on('user_notification', (data) => {
-        console.log('Received user_notification on client:', data);
-        if (data.recipient_id === user.id) {
+        console.log('[Socket-Debug] Received user_notification on client:', data, 'Logged-in User ID:', user?.id);
+        const recipientId = data.recipient_id || data.recipientId;
+        if (recipientId && user?.id && recipientId.toLowerCase() === user.id.toLowerCase()) {
+          console.log('[Socket-Debug] Matches current user! Adding to list and triggering toast.');
           addNotification(data);
           if (data.type === 'document_restored' || data.type === 'user_restored') {
-            toast.success(data.message, { duration: 6000, icon: '🎉' });
+            let cleanMsg = data.message;
+            if (cleanMsg && cleanMsg.includes('|||doc_id:')) {
+              cleanMsg = cleanMsg.split('|||doc_id:')[0];
+            }
+            if (cleanMsg && cleanMsg.includes('|||user_id:')) {
+              cleanMsg = cleanMsg.split('|||user_id:')[0];
+            }
+            toast.success(cleanMsg, { duration: 6000, icon: '🎉' });
           } else if (data.type === 'folder_shared') {
             toast.success(data.message, { duration: 6000, icon: '📁' });
           } else if (data.type === 'folder_unshared') {
@@ -187,6 +218,8 @@ export const SocketProvider = ({ children }) => {
           } else {
             toast(data.message, { duration: 5000 });
           }
+        } else {
+          console.log('[Socket-Debug] Recipient ID does not match current user:', recipientId, 'vs', user?.id);
         }
       });
 
