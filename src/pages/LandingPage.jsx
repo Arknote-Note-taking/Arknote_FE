@@ -9,7 +9,7 @@ const LandingPage = () => {
   const navigate = useNavigate();
   const { user, login, logout } = useContext(AuthContext);
   const [upgrading, setUpgrading] = useState(false);
-  
+
   // Scroll to top state
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -218,7 +218,7 @@ const LandingPage = () => {
         <div className="max-w-5xl mx-auto px-6 text-center">
           <div className="inline-flex items-center space-x-2 bg-primary/10 dark:bg-primary/15 border border-primary/20 text-primary px-4 py-1.5 rounded-full text-xs font-bold mb-6 animate-pulse">
             <Zap className="w-3.5 h-3.5" />
-            <span>ARKA ENGINE v2.0 - Phân Tích Bằng AI Sâu Sắc</span>
+            <span>ARKNOTE - Giải pháp số hoá và phân tích tài liệu bằng AI</span>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-8 leading-tight max-w-4xl mx-auto">
