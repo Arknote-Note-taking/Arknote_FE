@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Upload,
   MessageSquare,
@@ -26,62 +27,44 @@ import {
   Presentation,
   FileText,
   Image,
-  File
+  File,
+  ChevronDown,
+  Mic,
+  Search
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import DocumentSelectModal from '../components/DocumentSelectModal';
 import FolderSelectModal from '../components/FolderSelectModal';
-import { useConfirm } from '../context/ConfirmContext';
 
-// Preprocess AI text: convert common non-markdown patterns to proper markdown
-const preprocessMarkdown = (text) => {
-  if (!text) return '';
-  return text
-    // Convert '-> text' or '→ text' bullet style to markdown list
-    .replace(/^(-?>|→)\s+/gm, '- ')
-    // Convert '+ text' at start of line to list item
-    .replace(/^\+\s+/gm, '- ')
-    // Ensure numbered items like "1) text" also render as ordered list
-    .replace(/^(\d+)\)\s+/gm, '$1. ');
+const preprocessMarkdown = (content) => {
+  if (!content) return '';
+  return content.replace(/\n\s*\n/g, '\n\n');
 };
 
-// Markdown renderer for AI responses with beautiful, consistent typography
 const MarkdownRenderer = ({ content }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm]}
     components={{
-      // Paragraphs
       p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
-      // Bold
       strong: ({ children }) => <strong className="font-bold text-text-primary">{children}</strong>,
-      // Italic
       em: ({ children }) => <em className="italic opacity-90">{children}</em>,
-      // Numbered list
       ol: ({ children }) => <ol className="list-decimal list-outside ml-4 space-y-1.5 my-2">{children}</ol>,
-      // Bullet list
       ul: ({ children }) => <ul className="list-none ml-0 space-y-1.5 my-2">{children}</ul>,
-      // List item — react-markdown passes 'ordered' prop to li
       li: ({ children, ordered }) =>
         ordered
           ? <li className="pl-1 leading-relaxed">{children}</li>
           : <li className="flex items-start space-x-2 leading-relaxed"><span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary/70 shrink-0"></span><span className="flex-1">{children}</span></li>,
-      // Headings
       h1: ({ children }) => <h1 className="text-base font-extrabold text-text-primary mt-3 mb-1.5 border-b border-border pb-1">{children}</h1>,
       h2: ({ children }) => <h2 className="text-sm font-extrabold text-text-primary mt-3 mb-1.5">{children}</h2>,
       h3: ({ children }) => <h3 className="text-sm font-bold text-primary mt-2 mb-1">{children}</h3>,
-      // Inline code
       code: ({ inline, children }) =>
         inline
           ? <code className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>
           : <code className="block bg-black/10 dark:bg-white/10 rounded-lg p-3 text-xs font-mono mt-2 mb-2 overflow-x-auto whitespace-pre">{children}</code>,
-      // Code block wrapper
       pre: ({ children }) => <>{children}</>,
-      // Blockquote
       blockquote: ({ children }) => <blockquote className="border-l-2 border-primary/50 pl-3 italic opacity-80 my-2">{children}</blockquote>,
-      // Horizontal rule
       hr: () => <hr className="border-border my-3" />,
-      // Links
       a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline hover:opacity-80">{children}</a>,
     }}
   >
@@ -90,7 +73,7 @@ const MarkdownRenderer = ({ content }) => (
 );
 
 const AiAnalysis = () => {
-  const { refreshProfile } = useContext(AuthContext);
+  const { user, refreshProfile } = useContext(AuthContext);
   const { confirm } = useConfirm();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -119,11 +102,14 @@ const AiAnalysis = () => {
 
   // Sidebar collapse state
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [aiModel, setAiModel] = useState('Flash');
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
 
   const fileInputRef = useRef(null);
   const chatContainerRef = useRef(null);
 
-  // Exact 4 Commands with open-book, sparkles, key, alert icons and corresponding premium styling
   const studioCommands = [
     {
       name: 'Tạo Quiz',
@@ -135,7 +121,7 @@ const AiAnalysis = () => {
       name: 'Tóm tắt sâu',
       icon: Sparkles,
       color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20 dark:hover:bg-blue-500/20',
-      prompt: 'Hãy phân tích và tóm tắt sâu sắc tài liệu này, làm rõ: Bối cảnh ra đời, Nội dung cốt lõi chi tiết và Ý nghĩa thực tiễn.'
+      prompt: 'Hãy tóm tắt chi tiết các nội dung cốt lõi, sơ đồ lập luận hoặc cấu trúc chính của tài liệu này dưới dạng danh sách rõ ràng.'
     },
     {
       name: 'Trích từ khóa',
@@ -201,7 +187,6 @@ const AiAnalysis = () => {
       setIsSelectModalOpen(false);
 
       if (currentChatId) {
-        // Update context doc of existing chat in DB
         try {
           const chatObj = chats.find(c => c.id === currentChatId);
           const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
@@ -220,7 +205,6 @@ const AiAnalysis = () => {
           console.error(err);
         }
       } else {
-        // Auto-create chat session
         try {
           const defaultMsgs = [
             { role: 'user', type: 'file', docName: doc.title },
@@ -304,12 +288,10 @@ const AiAnalysis = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      // Update lists locally
       setExistingDocs(prev => [res.data, ...prev]);
       setContextDocId(res.data.id);
       setContextFolderId(null);
 
-      // Auto create or append to chat
       if (currentChatId) {
         const chatObj = chats.find(c => c.id === currentChatId);
         const currentMsgs = chatObj ? (typeof chatObj.messages === 'string' ? JSON.parse(chatObj.messages) : chatObj.messages) : [];
@@ -361,7 +343,6 @@ const AiAnalysis = () => {
     let activeChatId = currentChatId;
     let existingMessages = [];
 
-    // 1. Create chat session if none selected
     if (!activeChatId) {
       try {
         const titleText = userMsg.slice(0, 30) + (userMsg.length > 30 ? '...' : '');
@@ -387,21 +368,19 @@ const AiAnalysis = () => {
       }
     }
 
-    // 2. Append User message
     const updatedMessagesWithUser = [...existingMessages, { role: 'user', text: userMsg }];
     setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: updatedMessagesWithUser } : c));
 
     try {
-      // Add empty AI placeholder message to stream text into
       const localUpdatedMsgs = [...updatedMessagesWithUser, { role: 'ai', text: '' }];
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: localUpdatedMsgs } : c));
 
-      const user = JSON.parse(localStorage.getItem('user'));
+      const userObj = JSON.parse(localStorage.getItem('user'));
       const headers = {
         'Content-Type': 'application/json',
       };
-      if (user?.token) {
-        headers['Authorization'] = `Bearer ${user.token}`;
+      if (userObj?.token) {
+        headers['Authorization'] = `Bearer ${userObj.token}`;
       }
 
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -448,7 +427,6 @@ const AiAnalysis = () => {
         }
       }
 
-      // 4. Persist to DB on success
       const finalMessages = [...updatedMessagesWithUser, { role: 'ai', text: textBuffer }];
       await API.put(`/ai/chats/${activeChatId}`, { messages: finalMessages });
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalMessages } : c));
@@ -535,7 +513,6 @@ const AiAnalysis = () => {
     }
   };
 
-  // Extract display messages
   const activeChat = chats.find(c => c.id === currentChatId);
   const displayMessages = activeChat
     ? (typeof activeChat.messages === 'string' ? JSON.parse(activeChat.messages) : activeChat.messages)
@@ -546,23 +523,23 @@ const AiAnalysis = () => {
       }
     ];
 
+  const activeDoc = existingDocs.find(d => d.id === contextDocId);
+  const activeFolder = existingFolders.find(f => f.id === contextFolderId);
+  const isNewChat = !activeChat || (displayMessages.length === 1 && displayMessages[0].role === 'ai' && displayMessages[0].text.includes('Xin chào!'));
+  const filteredChats = chats.filter(c => c.title.toLowerCase().includes(chatSearchQuery.toLowerCase()));
+
   return (
-    <div className="max-w-[1600px] w-full mx-auto flex flex-col h-full">
-      <h1 className="text-2xl font-bold text-text-primary mb-1">AI Phân tích tài liệu</h1>
-      <p className="text-text-secondary text-sm mb-6">Chat với AI để phân tích, phân loại và tìm kiếm tài liệu</p>
+    <div className="w-[calc(100%+4rem)] -mx-8 -my-8 flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-background">
+      <div className="flex flex-row items-stretch flex-1 h-full overflow-hidden">
 
-      <div className="flex flex-col lg:flex-row gap-6 items-stretch flex-1">
-
-        {/* LEFT COLUMN: Chat History List (collapsible) */}
-        <div className={`shrink-0 flex flex-col transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-full lg:w-[260px]' : 'w-auto lg:w-[44px]'
-          }`}>
-
+        {/* LEFT COLUMN: Collapsible Sidebar styled like Gemini */}
+        <div className={`shrink-0 flex flex-col transition-all duration-300 ease-in-out h-full overflow-hidden ${sidebarOpen ? 'w-[280px]' : 'w-[48px]'}`}>
           {/* Collapsed view: just a toggle button */}
           {!sidebarOpen ? (
-            <div className="flex flex-col items-center h-[calc(100vh-230px)] min-h-[700px] bg-surface border border-border rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.02)] py-4 gap-3">
+            <div className="flex flex-col items-center h-full bg-surface border-r border-border py-4 gap-3 shrink-0">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="w-8 h-8 flex items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer"
                 title="Mở lịch sử trò chuyện"
               >
                 <ChevronRight className="w-4 h-4" />
@@ -572,15 +549,14 @@ const AiAnalysis = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-surface border border-border rounded-2xl p-4 flex flex-col h-[calc(100vh-230px)] min-h-[700px] shadow-[0_2px_15px_rgba(0,0,0,0.02)] overflow-hidden">
-
+            <div className="bg-surface border-r border-border flex flex-col h-full overflow-hidden p-4">
               {/* Header row with toggle */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 shrink-0">
                 <button
                   onClick={handleCreateNewChat}
-                  className="flex-1 bg-primary hover:bg-primary-dark text-white text-xs font-bold py-3 px-4 rounded-xl flex items-center justify-center space-x-2 transition shadow-sm cursor-pointer mr-2"
+                  className="flex-1 bg-slate-100 hover:bg-black/5 dark:bg-slate-800/40 dark:hover:bg-slate-855 border border-border rounded-full py-2 px-4 text-xs font-bold text-text-primary transition shadow-sm flex items-center justify-center space-x-2 cursor-pointer mr-2"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Edit2 className="w-3.5 h-3.5 text-primary" />
                   <span>Trò chuyện mới</span>
                 </button>
                 <button
@@ -592,13 +568,33 @@ const AiAnalysis = () => {
                 </button>
               </div>
 
-              <div className="border-b border-border/50 pb-2 mb-3 shrink-0">
-                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Trò chuyện gần đây</span>
+              {/* Search chats input */}
+              <div className="relative mb-4 shrink-0">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm trò chuyện..."
+                  value={chatSearchQuery}
+                  onChange={(e) => setChatSearchQuery(e.target.value)}
+                  className="w-full bg-background border border-border rounded-full py-2 pl-8 pr-4 text-xs text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
+                />
+                <Search className="w-3.5 h-3.5 text-text-secondary/50 absolute left-3 top-2.5" />
+                {chatSearchQuery && (
+                  <button
+                    onClick={() => setChatSearchQuery('')}
+                    className="absolute right-3 top-2 text-text-secondary hover:text-text-primary cursor-pointer p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              {/* Scrollable list capped to a max-height */}
-              <div className="overflow-y-auto space-y-1.5 pr-1 custom-scrollbar" style={{ maxHeight: '420px' }}>
-                {chats.map(chat => {
+              {/* Recent chats list */}
+              <div className="border-b border-border/50 pb-2 mb-3 shrink-0">
+                <span className="text-[10px] uppercase font-extrabold text-text-secondary tracking-wider">Trò chuyện gần đây</span>
+              </div>
+
+              <div className="overflow-y-auto space-y-1.5 pr-1 custom-scrollbar flex-1">
+                {filteredChats.map(chat => {
                   const isSelected = chat.id === currentChatId;
                   const isRenaming = chat.id === renamingChatId;
                   return (
@@ -650,303 +646,552 @@ const AiAnalysis = () => {
                   );
                 })}
 
-                {chats.length === 0 && (
+                {filteredChats.length === 0 && (
                   <div className="text-center text-text-secondary text-xs italic py-8">
-                    Chưa có lịch sử trò chuyện.
+                    Không tìm thấy cuộc trò chuyện nào.
                   </div>
                 )}
               </div>
-
-              {/* Scroll hint when there are many chats */}
-              {chats.length > 5 && (
-                <div className="mt-2 shrink-0 text-center text-[10px] text-text-secondary/60 italic">
-                  ↓ Kéo xuống để xem thêm
-                </div>
-              )}
             </div>
           )}
         </div>
 
-        {/* CENTER COLUMN: Main Chat Card */}
-        <div className="flex-1 bg-surface border border-border rounded-2xl flex flex-col p-6 shadow-[0_2px_15px_rgba(0,0,0,0.02)] h-[calc(100vh-230px)] min-h-[700px]">
+        {/* RIGHT WORKSPACE: Main Chat Area with Drag & Drop */}
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
+          className="flex-1 flex flex-col h-full overflow-hidden bg-background dark:bg-slate-900/10"
+        >
+          {/* Top Header Row */}
+          <div className="pb-3 border-b border-border flex items-center justify-between shrink-0 px-6 pt-4">
+            <div className="flex items-center space-x-2">
+              {!sidebarOpen && (
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-text-secondary hover:text-text-primary transition-all cursor-pointer mr-2 shrink-0 border border-border"
+                  title="Mở lịch sử"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              )}
 
-          {/* Chat Area */}
-          <div ref={chatContainerRef} className="flex-1 mb-6 flex flex-col pt-4 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-            {displayMessages.map((chat, idx) => (
-              <div key={idx} className={`flex flex-col ${chat.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {chat.role === 'ai' && (
-                  <div className="flex items-center space-x-2 mb-1 pl-4">
-                    <span className="text-primary text-[10px] font-bold">AI ASSISTANT</span>
+              {contextDocId && activeDoc ? (
+                <div className="flex items-center space-x-2 text-primary font-bold text-xs bg-primary/5 border border-primary/20 px-3 py-1.5 rounded-full animate-fade-in">
+                  <FolderSearch className="w-3.5 h-3.5" />
+                  <span className="truncate max-w-[200px] sm:max-w-[400px]">📚 Tài liệu: {activeDoc.title}</span>
+                </div>
+              ) : contextFolderId && activeFolder ? (
+                <div className="flex items-center space-x-2 text-[#117A65] font-bold text-xs bg-[#117A65]/5 border border-[#117A65]/20 px-3 py-1.5 rounded-full animate-fade-in">
+                  <Folder className="w-3.5 h-3.5" />
+                  <span className="truncate max-w-[200px] sm:max-w-[400px]">📁 Thư mục: {activeFolder.name}</span>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-text-secondary font-bold text-xs bg-slate-100 dark:bg-slate-800/60 border border-border px-3 py-1.5 rounded-full animate-fade-in">
+                  <MessageSquare className="w-3.5 h-3.5 opacity-70" />
+                  <span>💬 Trò chuyện tự do (Không ngữ cảnh)</span>
+                </div>
+              )}
+            </div>
+
+            {/* Context Status Indicator */}
+            <div className="flex items-center space-x-3">
+              {contextDocId ? (
+                <span className="text-emerald-500 font-bold text-[10px] items-center hidden sm:flex bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-ping"></span>
+                  Đã nạp tệp
+                </span>
+              ) : contextFolderId ? (
+                <span className="text-[#117A65] font-bold text-[10px] items-center hidden sm:flex bg-[#117A65]/5 px-2 py-1 rounded border border-[#117A65]/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#117A65] mr-1 animate-ping"></span>
+                  Đã nạp thư mục
+                </span>
+              ) : null}
+
+              {(contextDocId || contextFolderId) && (
+                <button
+                  onClick={() => {
+                    setContextDocId(null);
+                    setContextFolderId(null);
+                    toast.success('Đã gỡ bỏ ngữ cảnh, chuyển về trò chuyện tự do.');
+                  }}
+                  className="text-xs text-text-secondary hover:text-red-500 font-semibold px-2 py-1 rounded transition-colors cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/20"
+                  title="Gỡ ngữ cảnh"
+                >
+                  Gỡ ngữ cảnh
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Conditional Layout Rendering */}
+          {isNewChat ? (
+            /* CASE A: Centered welcome screen like Gemini */
+            <div className="flex-1 flex flex-col justify-center items-center max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto py-10 px-4 overflow-y-auto">
+              {/* Greeting with animated gradient colors */}
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-center mb-8 leading-tight animate-fade-in">
+                <span className="bg-gradient-to-r from-primary via-[#52B788] to-[#117A65] bg-clip-text text-transparent">
+                  Hi {user?.name || 'User'}, what's the plan?
+                </span>
+              </h2>
+
+              {/* AI Studio Commands Cards Grid - Exact 4 suggestion cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full mb-8">
+                {studioCommands.map((cmd, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleStudioCommandClick(cmd)}
+                    disabled={chatLoading}
+                    className={`flex flex-col p-5 rounded-2xl border text-left cursor-pointer transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-sm ${cmd.color}`}
+                  >
+                    <div className="flex items-center space-x-2.5 mb-2 font-bold text-xs">
+                      <cmd.icon className="w-4 h-4 shrink-0" />
+                      <span>{cmd.name}</span>
+                    </div>
+                    <p className="text-[11px] opacity-75 leading-relaxed truncate-2-lines line-clamp-2">
+                      {cmd.prompt}
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Input Area */}
+              <div className="w-full shrink-0">
+                {/* File Upload settings popup overlay */}
+                {file && (() => {
+                  const ext = file.name.split('.').pop()?.toLowerCase();
+                  const isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext);
+                  const isExcel = ['xlsx', 'xls', 'csv'].includes(ext);
+                  const isPpt = ['pptx', 'ppt'].includes(ext);
+                  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+                  const FileIcon = isVideo ? FileVideo : isExcel ? FileSpreadsheet : isPpt ? Presentation : isImage ? Image : FileText;
+                  const iconColor = isVideo ? 'text-purple-500 bg-purple-500/10' : isExcel ? 'text-green-600 bg-green-500/10' : isPpt ? 'text-orange-500 bg-orange-500/10' : isImage ? 'text-blue-500 bg-blue-500/10' : 'text-red-500 bg-red-500/10';
+                  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+                  return (
+                    <div className="mb-4 p-4 bg-background border border-border rounded-xl flex flex-col space-y-3.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg ${iconColor}`}>
+                          <FileIcon className="w-4.5 h-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-text-primary font-bold truncate">{file.name}</p>
+                          <p className="text-[10px] text-text-secondary">{sizeMB} MB · {ext?.toUpperCase()}</p>
+                        </div>
+                        <button onClick={() => setFile(null)} className="text-text-secondary hover:text-red-500 transition-colors shrink-0 cursor-pointer p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                        <div className="flex-1">
+                          <select
+                            value={subject}
+                            onChange={(e) => setSubject(e.target.value)}
+                            className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-primary cursor-pointer h-8.5"
+                          >
+                            <option value="Auto">✨ AI Tự động nhận diện danh mục</option>
+                            <option value="Nhân sự">Nhân sự</option>
+                            <option value="Hành chính">Hành chính</option>
+                            <option value="Pháp luật">Pháp luật</option>
+                            <option value="Học tập">Học tập</option>
+                            <option value="Khác">Khác (Tự điền...)</option>
+                          </select>
+                        </div>
+
+                        {subject === 'Khác' && (
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={customSubject}
+                              onChange={(e) => setCustomSubject(e.target.value)}
+                              placeholder="Tên danh mục riêng..."
+                              className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-primary h-8.5"
+                            />
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleUpload}
+                          disabled={loading}
+                          className="bg-primary hover:bg-primary-dark text-white text-xs px-4 py-1.5 rounded-lg font-bold flex items-center justify-center transition-colors shrink-0 h-8.5 cursor-pointer shadow-sm disabled:opacity-50 animate-pulse"
+                        >
+                          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                          <span>Nạp tài liệu</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Pill-Shaped Chat Input Container matching Gemini UI */}
+                <div className="relative flex items-center bg-[#F0F4F9] dark:bg-slate-800/75 border border-transparent focus-within:border-primary/20 focus-within:bg-background focus-within:dark:bg-slate-800 rounded-full px-4 py-2.5 shadow-none transition-all">
+                  {/* Left Plus Attachment Trigger */}
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                      className="p-2 text-text-primary hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                      title="Tùy chọn nạp tài liệu"
+                    >
+                      <Plus className={`w-5 h-5 transition-transform duration-200 ${showAttachmentMenu ? 'rotate-45 text-primary' : ''}`} />
+                    </button>
+                    {showAttachmentMenu && (
+                      <div
+                        onMouseLeave={() => setShowAttachmentMenu(false)}
+                        className="absolute bottom-full left-0 mb-3.5 w-60 bg-surface dark:bg-slate-900 border border-border rounded-2xl shadow-xl py-1.5 z-55 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { setIsSelectModalOpen(true); setShowAttachmentMenu(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
+                        >
+                          <FolderSearch className="w-4 h-4 text-primary" />
+                          <span className="flex-1">📚 Chọn tài liệu đã có</span>
+                          <span className="text-[9px] text-text-secondary bg-background px-1.5 py-0.5 rounded border border-border">{existingDocs.length}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setIsFolderSelectModalOpen(true); setShowAttachmentMenu(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
+                        >
+                          <Folder className="w-4 h-4 text-[#117A65]" />
+                          <span className="flex-1">📁 Chọn thư mục đã có</span>
+                          <span className="text-[9px] text-text-secondary bg-background px-1.5 py-0.5 rounded border border-border">{existingFolders.length}</span>
+                        </button>
+                        <div className="border-t border-border my-1"></div>
+                        <button
+                          type="button"
+                          onClick={() => { fileInputRef.current?.click(); setShowAttachmentMenu(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
+                        >
+                          <Upload className="w-4 h-4 text-[#52B788]" />
+                          <span>📤 Tải lên tài liệu mới</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Main Input Text Field */}
+                  <input
+                    type="text"
+                    placeholder="Ask Gemini..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                    className="flex-1 bg-transparent border-0 outline-none focus:ring-0 focus:outline-none text-sm text-text-primary placeholder:text-text-secondary/50 py-2.5 pl-2"
+                  />
+
+                  {/* Right Options (Model Selector & Mic/Send Button) */}
+                  <div className="flex items-center space-x-1.5 shrink-0 pl-2">
+                    {/* Model Selector Dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowModelDropdown(!showModelDropdown)}
+                        className="flex items-center space-x-1 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full text-xs font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                      >
+                        <span>{aiModel}</span>
+                        <ChevronDown className="w-3 h-3 opacity-70" />
+                      </button>
+                      {showModelDropdown && (
+                        <div
+                          onMouseLeave={() => setShowModelDropdown(false)}
+                          className="absolute bottom-full right-0 mb-3.5 w-48 bg-surface dark:bg-slate-900 border border-border rounded-2xl shadow-xl py-1.5 z-55 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { setAiModel('Flash'); setShowModelDropdown(false); }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs font-semibold flex flex-col transition-colors cursor-pointer text-text-primary"
+                          >
+                            <span>Gemini 1.5 Flash</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setAiModel('Pro'); setShowModelDropdown(false); }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs font-semibold flex flex-col transition-colors cursor-pointer text-text-primary"
+                          >
+                            <span>Gemini 1.5 Pro</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Send / Mic Icon Action Button */}
+                    {message.trim() ? (
+                      <button
+                        onClick={handleSendChat}
+                        className="p-2 bg-primary text-white rounded-full transition-all flex items-center justify-center cursor-pointer shadow-sm hover:scale-105 active:scale-95 w-8.5 h-8.5 shrink-0 flex items-center justify-center"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toast.success('🎤 Tính năng giọng nói sẽ được mở rộng trong tương lai!')}
+                        className="p-2 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-full transition-colors cursor-pointer flex items-center justify-center w-8.5 h-8.5 shrink-0 flex items-center justify-center"
+                      >
+                        <Mic className="w-4.5 h-4.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* CASE B: Chat message streaming history & input pinned at the bottom */
+            <>
+              {/* Chat Message List Area */}
+              <div ref={chatContainerRef} className="flex-1 mb-4 flex flex-col pt-4 overflow-y-auto space-y-4 pr-2 custom-scrollbar max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto px-4">
+                {displayMessages.map((chat, idx) => (
+                  <div key={idx} className={`flex flex-col ${chat.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    {chat.role === 'ai' && (
+                      <div className="flex items-center space-x-2 mb-1 pl-4 animate-fade-in">
+                        <span className="text-primary text-[10px] font-bold">AI ASSISTANT</span>
+                      </div>
+                    )}
+                    <div className={`p-4 text-sm rounded-2xl ${
+                      chat.role === 'user'
+                        ? 'bg-primary text-white rounded-br-sm max-w-[85%]'
+                        : 'bg-background dark:bg-surface/80 text-text-primary rounded-tl-sm border border-border shadow-sm w-full'
+                    }`}>
+                      {chat.type === 'file' ? (
+                        <div className="flex items-center space-x-3 bg-white/20 p-2 rounded-lg">
+                          <div className="bg-white/90 p-2 rounded text-primary">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-white">Upload File</span>
+                            <span className="text-white/80 text-xs truncate max-w-[150px]">{chat.docName}</span>
+                          </div>
+                        </div>
+                      ) : chat.role === 'user' ? (
+                        <p className="whitespace-pre-wrap leading-relaxed">{chat.text}</p>
+                      ) : (
+                        <MarkdownRenderer content={chat.text || ''} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="flex items-start animate-pulse">
+                    <div className="bg-background dark:bg-surface/80 rounded-2xl rounded-tl-sm p-4 text-sm text-text-primary border border-border shadow-sm">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    </div>
                   </div>
                 )}
-                <div className={`p-4 text-sm max-w-[80%] rounded-2xl ${chat.role === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-background dark:bg-surface/80 text-text-primary rounded-tl-sm border border-border'}`}>
-                  {chat.type === 'file' ? (
-                    <div className="flex items-center space-x-3 bg-white/20 p-2 rounded-lg">
-                      <div className="bg-white/90 p-2 rounded text-primary">
-                        <Upload className="w-5 h-5" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-white">Upload File</span>
-                        <span className="text-white/80 text-xs truncate max-w-[150px]">{chat.docName}</span>
-                      </div>
-                    </div>
-                  ) : chat.role === 'user' ? (
-                    <p className="whitespace-pre-wrap leading-relaxed">{chat.text}</p>
-                  ) : (
-                    <MarkdownRenderer content={chat.text || ''} />
-                  )}
-                </div>
-              </div>
-            ))}
-            {chatLoading && (
-              <div className="flex items-start">
-                <div className="bg-background dark:bg-surface/80 rounded-2xl rounded-tl-sm p-4 text-sm text-text-primary border border-border">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Input & Dropzone Area */}
-          <div className="border-t border-border pt-4 shrink-0">
-            <div className="relative mb-4 flex space-x-2">
-              <input type="text" placeholder="Hỏi AI về tài liệu... (VD: phân loại, tìm kiếm, tóm tắt)"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                className="flex-1 bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-              />
-              <button
-                onClick={handleSendChat}
-                disabled={chatLoading || !message.trim()}
-                className="bg-[#52B788] hover:bg-primary disabled:opacity-50 text-white px-5 rounded-xl transition-colors flex items-center justify-center shrink-0"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Dynamic Dual Context Selector (File vs Folder) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 px-1 shrink-0">
-              {/* Document Selector Button */}
-              <button
-                onClick={() => setIsSelectModalOpen(true)}
-                className="bg-surface hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl px-4 py-3 flex items-center justify-between transition-colors shadow-sm cursor-pointer group"
-              >
-                <div className="flex items-center space-x-3 text-text-primary font-medium">
-                  <div className="bg-secondary text-primary p-2 rounded-lg group-hover:scale-105 transition-transform">
-                    <FolderSearch className="w-5 h-5" />
-                  </div>
-                  <span className="text-xs">📚 Chọn tài liệu</span>
-                </div>
-                <span className="text-[10px] text-text-secondary bg-background px-2 py-1 rounded-md border border-border">
-                  {existingDocs.length} tệp
-                </span>
-              </button>
-
-              {/* Folder Selector Button */}
-              <button
-                onClick={() => setIsFolderSelectModalOpen(true)}
-                className="bg-surface hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl px-4 py-3 flex items-center justify-between transition-colors shadow-sm cursor-pointer group"
-              >
-                <div className="flex items-center space-x-3 text-text-primary font-medium">
-                  <div className="bg-secondary dark:bg-[#117A65]/20 text-[#117A65] dark:text-[#4DB6AC] p-2 rounded-lg group-hover:scale-105 transition-transform">
-                    <Folder className="w-5 h-5 text-[#117A65]" />
-                  </div>
-                  <span className="text-xs">📁 Chọn thư mục</span>
-                </div>
-                <span className="text-[10px] text-text-secondary bg-background px-2 py-1 rounded-md border border-border">
-                  {existingFolders.length} mục
-                </span>
-              </button>
-            </div>
-
-            <div className="relative flex items-center justify-center text-xs text-text-secondary font-medium mb-5 px-1">
-              <div className="flex-1 border-t border-border"></div>
-              <span className="px-3 bg-surface text-[10px] tracking-wider uppercase text-text-secondary/60">Hoặc tải lên mới</span>
-              <div className="flex-1 border-t border-border"></div>
-            </div>
-
-            <div
-              className="border-2 border-dashed border-border hover:border-primary/50 bg-background rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer transition-all mt-2 group"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
-            >
-              <Upload className="w-5 h-5 text-text-secondary mb-2 group-hover:text-primary transition-colors" />
-              <p className="text-sm font-semibold text-text-primary mb-1">Kéo thả tài liệu vào đây</p>
-              <p className="text-[10px] text-text-secondary mb-3">Hoặc click để chọn tệp từ máy tính</p>
-
-              {/* Format badges */}
-              <div className="flex flex-wrap gap-1.5 justify-center">
-                <span className="flex items-center space-x-1 bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                  <FileText className="w-2.5 h-2.5" /><span>PDF · DOCX</span>
-                </span>
-                <span className="flex items-center space-x-1 bg-green-500/10 text-green-600 border border-green-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                  <FileSpreadsheet className="w-2.5 h-2.5" /><span>XLSX · CSV</span>
-                </span>
-                <span className="flex items-center space-x-1 bg-orange-500/10 text-orange-500 border border-orange-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                  <Presentation className="w-2.5 h-2.5" /><span>PPTX · PPT</span>
-                </span>
-                <span className="flex items-center space-x-1 bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                  <FileVideo className="w-2.5 h-2.5" /><span>MP4 · MOV · AVI</span>
-                </span>
-                <span className="flex items-center space-x-1 bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                  <Image className="w-2.5 h-2.5" /><span>PNG · JPG</span>
-                </span>
               </div>
 
-              <input
-                type="file"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={(e) => setFile(e.target.files[0])}
-                accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.html,.htm,.txt,.png,.jpg,.jpeg,.mp4,.mov,.avi,.mkv"
-              />
-            </div>
-
-            {file && (() => {
-              const ext = file.name.split('.').pop()?.toLowerCase();
-              const isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext);
-              const isExcel = ['xlsx', 'xls', 'csv'].includes(ext);
-              const isPpt = ['pptx', 'ppt'].includes(ext);
-              const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
-              const FileIcon = isVideo ? FileVideo : isExcel ? FileSpreadsheet : isPpt ? Presentation : isImage ? Image : FileText;
-              const iconColor = isVideo ? 'text-purple-500 bg-purple-500/10' : isExcel ? 'text-green-600 bg-green-500/10' : isPpt ? 'text-orange-500 bg-orange-500/10' : isImage ? 'text-blue-500 bg-blue-500/10' : 'text-red-500 bg-red-500/10';
-              const sizeMB = (file.size / 1024 / 1024).toFixed(1);
-              return (
-                <div className="mt-3 p-4 bg-surface border border-border rounded-xl flex flex-col space-y-4">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2.5 rounded-xl ${iconColor}`}>
-                      <FileIcon className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-text-primary font-semibold truncate">{file.name}</p>
-                      <p className="text-[10px] text-text-secondary">{sizeMB} MB · {ext?.toUpperCase()}</p>
-                    </div>
-                    <button onClick={() => setFile(null)} className="text-text-secondary hover:text-red-500 transition-colors shrink-0">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {isVideo && (
-                    <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg px-3 py-2 flex items-start space-x-2">
-                      <FileVideo className="w-3.5 h-3.5 text-purple-500 shrink-0 mt-0.5" />
-                      <p className="text-[10px] text-purple-600 dark:text-purple-400 leading-relaxed">
-                        <strong>Video</strong> sẽ được phân tích bằng Gemini AI — có thể mất 1-3 phút tùy độ dài video. AI sẽ trích xuất nội dung, lời thoại và mô tả cảnh quay.
-                      </p>
-                    </div>
-                  )}
-                  {isExcel && (
-                    <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-3 py-2 flex items-start space-x-2">
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-green-600 shrink-0 mt-0.5" />
-                      <p className="text-[10px] text-green-700 dark:text-green-400 leading-relaxed">
-                        <strong>Excel/CSV</strong> sẽ được chuyển thành bảng văn bản có cấu trúc để AI phân tích. Bạn có thể hỏi về dữ liệu, tính toán, xu hướng.
-                      </p>
-                    </div>
-                  )}
-                  {isPpt && (
-                    <div className="bg-orange-500/5 border border-orange-500/20 rounded-lg px-3 py-2 flex items-start space-x-2">
-                      <Presentation className="w-3.5 h-3.5 text-orange-500 shrink-0 mt-0.5" />
-                      <p className="text-[10px] text-orange-700 dark:text-orange-400 leading-relaxed">
-                        <strong>PowerPoint</strong> sẽ được trích xuất toàn bộ slide và nội dung văn bản. Bạn có thể đặt câu hỏi về nội dung trình bày.
-                      </p>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-xs font-semibold text-text-secondary mb-1">Danh mục (Tùy chọn)</label>
-                    <select
-                      value={subject}
-                      onChange={(e) => setSubject(e.target.value)}
-                      className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary cursor-pointer"
+              {/* Bottom Pinned Input Area */}
+              <div className="border-t border-border/40 pt-4 shrink-0 max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto pb-6 px-4 animate-slide-up">
+                {/* Horizontal scrolling Compact suggestion pills */}
+                <div className="flex space-x-2.5 overflow-x-auto pb-3 hide-scrollbar px-1 shrink-0 mb-3 justify-start items-center">
+                  {studioCommands.map((cmd, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleStudioCommandClick(cmd)}
+                      disabled={chatLoading}
+                      className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap cursor-pointer transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-sm ${cmd.color}`}
                     >
-                      <option value="Auto">✨ AI Tự động nhận diện</option>
-                      <option value="Nhân sự">Nhân sự</option>
-                      <option value="Hành chính">Hành chính</option>
-                      <option value="Pháp luật">Pháp luật</option>
-                      <option value="Học tập">Học tập</option>
-                      <option value="Khác">Khác (Tự điền...)</option>
-                    </select>
+                      <cmd.icon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{cmd.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* File Upload settings popup overlay */}
+                {file && (() => {
+                  const ext = file.name.split('.').pop()?.toLowerCase();
+                  const isVideo = ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext);
+                  const isExcel = ['xlsx', 'xls', 'csv'].includes(ext);
+                  const isPpt = ['pptx', 'ppt'].includes(ext);
+                  const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+                  const FileIcon = isVideo ? FileVideo : isExcel ? FileSpreadsheet : isPpt ? Presentation : isImage ? Image : FileText;
+                  const iconColor = isVideo ? 'text-purple-500 bg-purple-500/10' : isExcel ? 'text-green-600 bg-green-500/10' : isPpt ? 'text-orange-500 bg-orange-500/10' : isImage ? 'text-blue-500 bg-blue-500/10' : 'text-red-500 bg-red-500/10';
+                  const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+                  return (
+                    <div className="mb-4 p-4 bg-background border border-border rounded-xl flex flex-col space-y-3.5 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-150">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg ${iconColor}`}>
+                          <FileIcon className="w-4.5 h-4.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-text-primary font-bold truncate">{file.name}</p>
+                          <p className="text-[10px] text-text-secondary">{sizeMB} MB · {ext?.toUpperCase()}</p>
+                        </div>
+                        <button onClick={() => setFile(null)} className="text-text-secondary hover:text-red-500 transition-colors shrink-0 cursor-pointer p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                        <div className="flex-1">
+                          <select
+                            value={subject}
+                            onChange={(e) => setSubject(e.target.value)}
+                            className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-primary cursor-pointer h-8.5"
+                          >
+                            <option value="Auto">✨ AI Tự động nhận diện danh mục</option>
+                            <option value="Nhân sự">Nhân sự</option>
+                            <option value="Hành chính">Hành chính</option>
+                            <option value="Pháp luật">Pháp luật</option>
+                            <option value="Học tập">Học tập</option>
+                            <option value="Khác">Khác (Tự điền...)</option>
+                          </select>
+                        </div>
+
+                        {subject === 'Khác' && (
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={customSubject}
+                              onChange={(e) => setCustomSubject(e.target.value)}
+                              placeholder="Tên danh mục riêng..."
+                              className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-primary h-8.5"
+                            />
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleUpload}
+                          disabled={loading}
+                          className="bg-primary hover:bg-primary-dark text-white text-xs px-4 py-1.5 rounded-lg font-bold flex items-center justify-center transition-colors shrink-0 h-8.5 cursor-pointer shadow-sm disabled:opacity-50"
+                        >
+                          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                          <span>Nạp tài liệu</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Pill-Shaped Chat Input Container matching Gemini UI */}
+                <div className="relative flex items-center bg-[#F0F4F9] dark:bg-slate-800/75 border border-transparent focus-within:border-primary/20 focus-within:bg-background focus-within:dark:bg-slate-800 rounded-full px-4 py-2 shadow-none transition-all">
+                  {/* Left Plus Attachment Trigger */}
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                      className="p-2 text-text-primary hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer flex items-center justify-center shrink-0"
+                      title="Tùy chọn nạp tài liệu"
+                    >
+                      <Plus className={`w-5 h-5 transition-transform duration-200 ${showAttachmentMenu ? 'rotate-45 text-primary' : ''}`} />
+                    </button>
+                    
+                    {/* Floating Popover Attachment Menu */}
+                    {showAttachmentMenu && (
+                      <div
+                        onMouseLeave={() => setShowAttachmentMenu(false)}
+                        className="absolute bottom-full left-0 mb-3.5 w-60 bg-surface dark:bg-slate-900 border border-border rounded-2xl shadow-xl py-1.5 z-55 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { setIsSelectModalOpen(true); setShowAttachmentMenu(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
+                        >
+                          <FolderSearch className="w-4 h-4 text-primary" />
+                          <span className="flex-1">📚 Chọn tài liệu đã có</span>
+                          <span className="text-[9px] text-text-secondary bg-background px-1.5 py-0.5 rounded border border-border">{existingDocs.length}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setIsFolderSelectModalOpen(true); setShowAttachmentMenu(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
+                        >
+                          <Folder className="w-4 h-4 text-[#117A65]" />
+                          <span className="flex-1">📁 Chọn thư mục đã có</span>
+                          <span className="text-[9px] text-text-secondary bg-background px-1.5 py-0.5 rounded border border-border">{existingFolders.length}</span>
+                        </button>
+                        <div className="border-t border-border my-1"></div>
+                        <button
+                          type="button"
+                          onClick={() => { fileInputRef.current?.click(); setShowAttachmentMenu(false); }}
+                          className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
+                        >
+                          <Upload className="w-4 h-4 text-[#52B788]" />
+                          <span>📤 Tải lên tài liệu mới</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {subject === 'Khác' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-text-secondary mb-1">Tên danh mục riêng của bạn</label>
-                      <input
-                        type="text"
-                        value={customSubject}
-                        onChange={(e) => setCustomSubject(e.target.value)}
-                        placeholder="VD: Tài chính, Dự án A..."
-                        className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-primary"
-                      />
+                  {/* Main Input Text Field */}
+                  <input
+                    type="text"
+                    placeholder="Ask Gemini..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
+                    className="flex-1 bg-transparent border-0 outline-none focus:ring-0 focus:outline-none text-sm text-text-primary placeholder:text-text-secondary/50 py-2.5 pl-2"
+                  />
+
+                  {/* Right Options (Model Selector & Mic/Send Button) */}
+                  <div className="flex items-center space-x-1.5 shrink-0 pl-2">
+                    {/* Model Selector Dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowModelDropdown(!showModelDropdown)}
+                        className="flex items-center space-x-1 px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-full text-xs font-bold text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                      >
+                        <span>{aiModel}</span>
+                        <ChevronDown className="w-3 h-3 opacity-70" />
+                      </button>
+                      {showModelDropdown && (
+                        <div
+                          onMouseLeave={() => setShowModelDropdown(false)}
+                          className="absolute bottom-full right-0 mb-3.5 w-48 bg-surface dark:bg-slate-900 border border-border rounded-2xl shadow-xl py-1.5 z-55 animate-in fade-in slide-in-from-bottom-2 duration-150"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { setAiModel('Flash'); setShowModelDropdown(false); }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs font-semibold flex flex-col transition-colors cursor-pointer text-text-primary"
+                          >
+                            <span>Gemini 1.5 Flash</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setAiModel('Pro'); setShowModelDropdown(false); }}
+                            className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs font-semibold flex flex-col transition-colors cursor-pointer text-text-primary"
+                          >
+                            <span>Gemini 1.5 Pro</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
 
-                  <button onClick={handleUpload} disabled={loading} className="w-full bg-primary hover:bg-primary-dark text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center transition-colors animate-pulse">
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    {loading ? 'Đang tải & Phân tích...' : 'Xác nhận tải lên'}
-                  </button>
+                    {/* Send / Mic Icon Action Button */}
+                    {message.trim() ? (
+                      <button
+                        onClick={handleSendChat}
+                        className="p-2 bg-primary text-white rounded-full transition-all flex items-center justify-center cursor-pointer shadow-sm hover:scale-105 active:scale-95 w-8.5 h-8.5 shrink-0 flex items-center justify-center"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toast.success('🎤 Tính năng giọng nói sẽ được mở rộng trong tương lai!')}
+                        className="p-2 text-text-secondary hover:text-text-primary hover:bg-black/5 rounded-full transition-colors cursor-pointer flex items-center justify-center w-8.5 h-8.5 shrink-0 flex items-center justify-center"
+                      >
+                        <Mic className="w-4.5 h-4.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              );
-            })()}
-          </div>
-        </div>
+              </div>
+            </>
+          )}
 
-        {/* RIGHT COLUMN: AI Studio Commands Panel */}
-        <div className="w-full lg:w-[280px] shrink-0 bg-surface border border-border rounded-2xl p-6 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex flex-col h-[calc(100vh-230px)] min-h-[700px] overflow-hidden">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-border shrink-0">
-            <div className="flex items-center space-x-2">
-              <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-              <h3 className="font-extrabold text-text-primary text-sm">AI Studio</h3>
-            </div>
-            <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full uppercase">
-              Commands
-            </span>
-          </div>
-
-          <p className="text-xs text-text-secondary mb-5 shrink-0 leading-relaxed">
-            {contextDocId || contextFolderId
-              ? "Ngữ cảnh hoạt động! Chọn một câu lệnh nhanh dưới đây để bắt đầu phân tích:"
-              : "Vui lòng chọn hoặc nạp tài liệu / thư mục bên trái để sử dụng câu lệnh phân tích nhanh:"}
-          </p>
-
-          {/* Quick Commands List - Exact 4 Commands (Tạo Quiz, Tóm tắt sâu, Trích từ khóa, Phân tích rủi ro) */}
-          <div className="flex-1 overflow-y-auto space-y-3.5 custom-scrollbar pr-1 py-1">
-            {studioCommands.map((cmd, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleStudioCommandClick(cmd)}
-                disabled={chatLoading}
-                className={`w-full flex flex-col p-4 rounded-2xl border text-left cursor-pointer transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-sm ${cmd.color}`}
-              >
-                <div className="flex items-center space-x-2 mb-1.5 font-bold text-xs">
-                  <cmd.icon className="w-4 h-4 shrink-0" />
-                  <span>{cmd.name}</span>
-                </div>
-                <p className="text-[10px] opacity-75 leading-relaxed truncate-2-lines line-clamp-2">
-                  {cmd.prompt}
-                </p>
-              </button>
-            ))}
-          </div>
-
-          {/* Sidebar footer status indicator */}
-          <div className="mt-5 pt-3 border-t border-border shrink-0 flex items-center justify-between text-[10px] text-text-secondary">
-            <span>Trạng thái ngữ cảnh:</span>
-            {contextDocId ? (
-              <span className="text-emerald-500 font-bold flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-ping"></span>
-                Đã nạp tệp
-              </span>
-            ) : contextFolderId ? (
-              <span className="text-[#117A65] font-bold flex items-center">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#117A65] mr-1 animate-ping"></span>
-                Đã nạp thư mục
-              </span>
-            ) : (
-              <span className="text-text-secondary/70 font-semibold">Trò chuyện tự do</span>
-            )}
-          </div>
+          <input
+            type="file"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                setFile(e.target.files[0]);
+              }
+            }}
+            accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.html,.htm,.txt,.png,.jpg,.jpeg,.mp4,.mov,.avi,.mkv"
+          />
         </div>
 
       </div>

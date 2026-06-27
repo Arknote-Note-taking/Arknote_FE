@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import API from '../services/api';
 import { SocketContext } from '../context/SocketContext';
-import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap, Pin } from 'lucide-react';
+import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap, Pin, Loader2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -71,6 +71,29 @@ const DocumentList = () => {
   // Deleted Documents (Admin Only)
   const [deletedDocs, setDeletedDocs] = useState([]);
 
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const res = await API.get('/documents');
+      setDocuments(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const fetchFolders = useCallback(async () => {
+    try {
+      const res = await API.get('/documents/folders');
+      const sharedRes = await API.get('/shares/shared-folders');
+      
+      const ownFolders = (res.data || []).map(f => ({ ...f, is_shared: false }));
+      const sharedFolders = (sharedRes.data || []).map(f => ({ ...f, is_shared: true }));
+      
+      setFolders([...ownFolders, ...sharedFolders]);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   const fetchDeletedDocs = useCallback(async () => {
     try {
       const res = await API.get('/documents/deleted');
@@ -107,6 +130,7 @@ const DocumentList = () => {
         try {
           await API.post(`/documents/${docId}/request-restore`);
           toast.success('Đã gửi yêu cầu khôi phục tài liệu thành công!');
+          fetchDeletedDocs();
         } catch (err) {
           toast.error(err.response?.data?.error || 'Lỗi khi gửi yêu cầu khôi phục!');
         }
@@ -129,30 +153,14 @@ const DocumentList = () => {
     setDeletedCurrentPage(1);
     setIsSelectMode(false);
     setSelectedDocIds([]);
-  }, [searchQuery, activeFilter, viewMode]);
-
-  const fetchDocuments = useCallback(async () => {
-    try {
-      const res = await API.get('/documents');
-      setDocuments(res.data);
-    } catch (err) {
-      console.error(err);
+    if (viewMode === 'deleted') {
+      fetchDeletedDocs();
+    } else if (viewMode === 'documents') {
+      fetchDocuments();
+    } else if (viewMode === 'folders') {
+      fetchFolders();
     }
-  }, []);
-
-  const fetchFolders = useCallback(async () => {
-    try {
-      const res = await API.get('/documents/folders');
-      const sharedRes = await API.get('/shares/shared-folders');
-      
-      const ownFolders = (res.data || []).map(f => ({ ...f, is_shared: false }));
-      const sharedFolders = (sharedRes.data || []).map(f => ({ ...f, is_shared: true }));
-      
-      setFolders([...ownFolders, ...sharedFolders]);
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+  }, [searchQuery, activeFilter, viewMode, fetchDeletedDocs, fetchDocuments, fetchFolders]);
 
   useEffect(() => {
     fetchDocuments();
@@ -176,6 +184,7 @@ const DocumentList = () => {
   useEffect(() => {
     if (!socket) return;
     const handleCreated = (newDoc) => {
+      if (newDoc.user_id !== user?.id) return;
       setDocuments(docs => {
         if (docs.some(d => d.id === newDoc.id)) return docs;
         return [newDoc, ...docs];
@@ -184,7 +193,8 @@ const DocumentList = () => {
       fetchFolders(); // Sync folders counts
     };
     const handleUpdated = (updatedDoc) => {
-      setDocuments(docs => docs.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+      if (updatedDoc.user_id !== user?.id) return;
+      setDocuments(docs => docs.map(d => d.id === updatedDoc.id ? { ...d, ...updatedDoc, is_pinned: d.is_pinned } : d));
       fetchFolders();
     };
     const handleDeleted = ({ id }) => {
@@ -194,8 +204,11 @@ const DocumentList = () => {
     };
     const handleUserNotification = (data) => {
       console.log('[Socket] DocumentList received user_notification:', data);
-      if (data.recipient_id === user?.id && (data.type === 'folder_shared' || data.type === 'folder_unshared')) {
-        fetchFolders();
+      const recipientId = data.recipient_id || data.recipientId;
+      if (recipientId && user && recipientId.toLowerCase() === user.id.toLowerCase()) {
+        if (data.type === 'folder_shared' || data.type === 'folder_unshared') {
+          fetchFolders();
+        }
       }
     };
 
@@ -244,6 +257,7 @@ const DocumentList = () => {
                     try {
                       await API.post(`/documents/${id}/request-restore`);
                       toast.success("Đã gửi yêu cầu khôi phục tới Admin!");
+                      fetchDeletedDocs();
                     } catch (err) {
                       toast.error("Gửi yêu cầu thất bại!");
                     }
@@ -656,6 +670,11 @@ const DocumentList = () => {
                   <span className="text-[10px] font-semibold text-[#10B981] bg-[#DEF7EC] dark:bg-[#DEF7EC]/10 border border-[#10B981]/20 px-2 py-0.5 rounded text-center leading-none">
                     Đã xử lý
                   </span>
+                  {user && user.role !== 'admin' && doc.user_id !== user.id && (
+                    <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-900/30 px-2 py-0.5 rounded text-center leading-none">
+                      👥 Được chia sẻ
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-text-secondary mb-3 max-w-5xl line-clamp-1">{doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}</p>
                 <div className="flex items-center space-x-2">
@@ -834,6 +853,11 @@ const DocumentList = () => {
                   <span className="text-[10px] font-semibold text-red-500 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded text-center leading-none whitespace-nowrap shrink-0">
                     Đã xóa
                   </span>
+                  {doc.restore_requested && (
+                    <span className="text-[10px] font-semibold text-amber-600 bg-amber-500/10 border border-amber-500/25 px-2 py-0.5 rounded text-center leading-none whitespace-nowrap shrink-0 animate-pulse">
+                      Đang yêu cầu khôi phục
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-text-secondary mb-3 max-w-5xl line-clamp-1">
                   {doc.summary || 'Trích xuất nội dung và phân tích dựa trên AI model...'}
@@ -857,6 +881,14 @@ const DocumentList = () => {
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Khôi phục</span>
+                  </button>
+                ) : doc.restore_requested ? (
+                  <button
+                    disabled
+                    className="flex items-center space-x-1.5 bg-[#FFFBEB] dark:bg-[#78350F]/20 text-[#D97706] dark:text-[#FBB024] border border-[#FDE68A] dark:border-[#D97706]/30 px-3.5 py-1.5 rounded-lg text-xs font-bold select-none whitespace-nowrap shrink-0 cursor-not-allowed opacity-90 shadow-sm"
+                  >
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xử lý</span>
                   </button>
                 ) : (
                   <button

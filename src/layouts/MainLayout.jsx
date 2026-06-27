@@ -20,13 +20,19 @@ const MainLayout = ({ children }) => {
       return;
     }
 
-    const targetDocId = notif.doc_id || notif.docId;
+    let targetDocId = notif.doc_id || notif.docId;
+    if (notif.message && notif.message.includes('|||doc_id:')) {
+      targetDocId = notif.message.split('|||doc_id:')[1];
+    }
     if (!targetDocId) return;
 
     if (notif.type === 'document_restore_request' || notif.is_for_admin) {
       // Admin redirect: Deleted Documents
       navigate('/documents', { state: { viewMode: 'deleted', highlightDocId: targetDocId } });
-    } else if (notif.type === 'document_restored' || !notif.is_for_admin) {
+    } else if (notif.type === 'document_restored') {
+      // Go directly to the restored document details!
+      navigate(`/documents/${targetDocId}`);
+    } else if (!notif.is_for_admin) {
       // User redirect: Active Documents
       navigate('/documents', { state: { viewMode: 'documents', highlightDocId: targetDocId } });
     }
@@ -142,7 +148,7 @@ const MainLayout = ({ children }) => {
         {/* Header */}
         <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-6 shrink-0 transition-colors duration-300">
           <div className="flex items-center text-text-secondary">
-            <div className="text-xs text-text-secondary/50 font-medium hidden sm:block">Arknote AI Platform</div>
+            <div className="text-xs text-text-secondary/50 font-medium hidden sm:block">Arknote</div>
           </div>
           <div className="flex items-center space-x-3">
             {/* Dark Mode Toggle */}
@@ -201,9 +207,8 @@ const MainLayout = ({ children }) => {
                       <div
                         key={notif.id}
                         onClick={() => handleNotificationClick(notif)}
-                        className={`p-3.5 text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer ${
-                          !notif.read ? 'bg-primary/5 font-medium' : 'text-text-secondary'
-                        }`}
+                        className={`p-3.5 text-xs transition-colors hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer ${!notif.read ? 'bg-primary/5 font-medium' : 'text-text-secondary'
+                          }`}
                       >
                         <div className="flex justify-between items-start gap-1">
                           <span className={`font-bold ${!notif.read ? 'text-text-primary' : 'text-text-secondary'}`}>
@@ -226,7 +231,11 @@ const MainLayout = ({ children }) => {
                           </div>
                         </div>
                         <p className="text-[11px] text-text-secondary mt-1 leading-normal">
-                          {notif.message}
+                          {notif.message && notif.message.includes('|||doc_id:') 
+                            ? notif.message.split('|||doc_id:')[0] 
+                            : notif.message && notif.message.includes('|||user_id:')
+                            ? notif.message.split('|||user_id:')[0]
+                            : notif.message}
                         </p>
                       </div>
                     ))}

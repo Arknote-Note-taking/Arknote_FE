@@ -115,7 +115,7 @@ const OnboardingModal = () => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md px-4 select-none">
-      <div className="relative w-full max-w-xl bg-surface/95 dark:bg-slate-900/95 border border-border p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden transition-all duration-300">
+      <div className="relative w-full max-w-xl bg-surface/95 dark:bg-slate-900/95 border border-border p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden transition-all duration-300 text-text-primary">
 
         {/* Decorative subtle ambient lights */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl -z-10" />
@@ -124,12 +124,12 @@ const OnboardingModal = () => {
         {/* Modal Top Nav */}
         <div className="flex items-center justify-between border-b border-border/50 pb-4">
           <div className="flex flex-col">
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+            <span className="text-[10px] font-black text-primary dark:text-emerald-400 uppercase tracking-widest">
               Khảo sát • Bước {step} / 7
             </span>
             <div className="h-1.5 w-48 bg-border/40 dark:bg-white/10 rounded-full overflow-hidden mt-1.5">
               <div
-                className="bg-gradient-to-r from-primary to-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
+                className="bg-gradient-to-r from-primary dark:from-emerald-600 to-emerald-500 h-full rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${(step / 7) * 100}%` }}
               />
             </div>
@@ -137,7 +137,7 @@ const OnboardingModal = () => {
 
           <button
             onClick={handleSkip}
-            className="text-xs text-text-secondary hover:text-primary hover:border-primary/50 border border-border px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all font-bold flex items-center space-x-1 cursor-pointer"
+            className="text-xs text-text-secondary hover:text-primary dark:hover:text-emerald-400 hover:border-primary/50 dark:hover:border-emerald-500/50 border border-border px-3 py-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all font-bold flex items-center space-x-1 cursor-pointer"
             title="Bỏ qua phần khảo sát này"
           >
             <span>Bỏ qua</span>
@@ -173,11 +173,11 @@ const OnboardingModal = () => {
                       key={opt.label}
                       onClick={() => handleSingleSelect('major', opt.label)}
                       className={`flex items-center space-x-3 p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
-                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-primary/10 text-primary' : 'bg-black/5 dark:bg-white/5 text-text-secondary'}`}>
+                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-emerald-400' : 'bg-black/5 dark:bg-white/5 text-text-secondary'}`}>
                         <IconComp className="w-4 h-4" />
                       </div>
                       <span>{opt.label}</span>
@@ -221,11 +221,11 @@ const OnboardingModal = () => {
                       key={opt.label}
                       onClick={() => handleSingleSelect('usedAiBefore', opt.label)}
                       className={`flex items-start space-x-4 p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer w-full ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
-                      <div className={`p-2 rounded-xl mt-0.5 ${isSelected ? 'bg-primary/10 text-primary' : 'bg-black/5 dark:bg-white/5 text-text-secondary'}`}>
+                      <div className={`p-2 rounded-xl mt-0.5 ${isSelected ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-emerald-400' : 'bg-black/5 dark:bg-white/5 text-text-secondary'}`}>
                         <IconComp className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
@@ -263,12 +263,12 @@ const OnboardingModal = () => {
                       key={opt}
                       onClick={() => handleMultiSelect('aiPurpose', opt)}
                       className={`flex items-center justify-between p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
                       <span>{opt}</span>
-                      <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-primary bg-primary text-white' : 'border-border bg-white dark:bg-slate-800'
+                      <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-primary dark:border-emerald-500 bg-primary dark:bg-emerald-500 text-white' : 'border-border bg-white dark:bg-slate-800'
                         }`}>
                         {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                       </div>
@@ -302,12 +302,12 @@ const OnboardingModal = () => {
                       key={opt}
                       onClick={() => handleMultiSelect('storagePreference', opt)}
                       className={`flex items-center justify-between p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
                       <span>{opt}</span>
-                      <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-primary bg-primary text-white' : 'border-border bg-white dark:bg-slate-800'
+                      <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-primary dark:border-emerald-500 bg-primary dark:bg-emerald-500 text-white' : 'border-border bg-white dark:bg-slate-800'
                         }`}>
                         {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                       </div>
@@ -341,12 +341,12 @@ const OnboardingModal = () => {
                       key={opt}
                       onClick={() => handleMultiSelect('documentTypes', opt)}
                       className={`flex items-center justify-between p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
                       <span>{opt}</span>
-                      <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-primary bg-primary text-white' : 'border-border bg-white dark:bg-slate-800'
+                      <div className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${isSelected ? 'border-primary dark:border-emerald-500 bg-primary dark:bg-emerald-500 text-white' : 'border-border bg-white dark:bg-slate-800'
                         }`}>
                         {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
                       </div>
@@ -380,11 +380,11 @@ const OnboardingModal = () => {
                       key={opt.label}
                       onClick={() => handleSingleSelect('featureOfInterest', opt.label)}
                       className={`flex items-center space-x-3 p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer w-full ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
-                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-primary/10 text-primary' : 'bg-black/5 dark:bg-white/5 text-text-secondary'}`}>
+                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-emerald-400' : 'bg-black/5 dark:bg-white/5 text-text-secondary'}`}>
                         <IconComp className="w-4 h-4" />
                       </div>
                       <span>{opt.label}</span>
@@ -417,11 +417,11 @@ const OnboardingModal = () => {
                       key={opt.label}
                       onClick={() => handleSingleSelect('pricingWillingness', opt.label)}
                       className={`flex items-center space-x-3.5 p-4 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer w-full ${isSelected
-                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary shadow-md shadow-primary/10'
+                        ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
                     >
-                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-primary/10 text-primary' : opt.color}`}>
+                      <div className={`p-2 rounded-xl ${isSelected ? 'bg-primary/10 dark:bg-primary/20 text-primary dark:text-emerald-400' : opt.color}`}>
                         <IconComp className="w-4 h-4" />
                       </div>
                       <span>{opt.label}</span>
