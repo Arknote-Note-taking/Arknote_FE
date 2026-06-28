@@ -58,11 +58,11 @@ const DocumentList = () => {
 
   // Pagination Integration
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4;
+  const itemsPerPage = 5;
 
   // Pagination for Deleted Documents
   const [deletedCurrentPage, setDeletedCurrentPage] = useState(1);
-  const deletedItemsPerPage = 4;
+  const deletedItemsPerPage = 5;
 
   // Bulk Delete Integration
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -84,10 +84,10 @@ const DocumentList = () => {
     try {
       const res = await API.get('/documents/folders');
       const sharedRes = await API.get('/shares/shared-folders');
-      
+
       const ownFolders = (res.data || []).map(f => ({ ...f, is_shared: false }));
       const sharedFolders = (sharedRes.data || []).map(f => ({ ...f, is_shared: true }));
-      
+
       setFolders([...ownFolders, ...sharedFolders]);
     } catch (err) {
       console.error(err);
@@ -399,12 +399,12 @@ const DocumentList = () => {
     if (location.state && location.state.viewMode) {
       const targetMode = location.state.viewMode;
       const highlightId = location.state.highlightDocId;
-      
+
       setViewMode(targetMode);
 
       if (highlightId) {
         let found = false;
-        
+
         if (targetMode === 'deleted') {
           if (deletedDocs && deletedDocs.length > 0) {
             const index = filteredDeletedDocs.findIndex(d => d.id === highlightId);
@@ -454,20 +454,14 @@ const DocumentList = () => {
     <div className="max-w-[1600px] w-full mx-auto relative">
 
       {/* 1. Header Navigation and Title */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-text-primary mb-1">Tài liệu của tôi</h1>
-          <p className="text-text-secondary text-sm">Tìm kiếm, lưu trữ tài liệu và gộp nhóm thư mục tiện lợi</p>
-        </div>
-      </div>
 
       {/* 2. Toggle Tab between Documents and Folders */}
       <div className="flex space-x-1 border-b border-border mb-6">
         <button
           onClick={() => setViewMode('documents')}
           className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'documents'
-              ? 'border-b-2 border-primary text-primary font-bold'
-              : 'text-text-secondary hover:text-text-primary'
+            ? 'border-b-2 border-primary text-primary font-bold'
+            : 'text-text-secondary hover:text-text-primary'
             }`}
         >
           <div className="flex items-center space-x-2">
@@ -479,8 +473,8 @@ const DocumentList = () => {
           <button
             onClick={() => setViewMode('folders')}
             className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'folders'
-                ? 'border-b-2 border-primary text-primary font-bold'
-                : 'text-text-secondary hover:text-text-primary'
+              ? 'border-b-2 border-primary text-primary font-bold'
+              : 'text-text-secondary hover:text-text-primary'
               }`}
           >
             <div className="flex items-center space-x-2">
@@ -492,8 +486,8 @@ const DocumentList = () => {
         <button
           onClick={() => setViewMode('deleted')}
           className={`px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${viewMode === 'deleted'
-              ? 'border-b-2 border-primary text-primary font-bold'
-              : 'text-text-secondary hover:text-text-primary'
+            ? 'border-b-2 border-primary text-primary font-bold'
+            : 'text-text-secondary hover:text-text-primary'
             }`}
         >
           <div className="flex items-center space-x-2">
@@ -505,7 +499,7 @@ const DocumentList = () => {
 
       {/* 2.5. Upload Limit Indicator for Non-Pro Users */}
       {user?.role !== 'admin' && !user?.is_pro && (
-        <div className="bg-amber-500/15 border border-amber-500/25 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative overflow-hidden">
+        <div className="bg-amber-500/15 border border-amber-500/25 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative overflow-hidden">
           <div className="flex items-center space-x-3">
             <span className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
               <Zap className="w-5 h-5 animate-pulse" />
@@ -628,15 +622,13 @@ const DocumentList = () => {
           {paginatedDocs.map(doc => (
             <div
               key={doc.id}
-              className={`bg-surface border p-5 rounded-xl transition-all flex justify-between items-start ${
-                isSelectMode || user?.role !== 'admin' ? 'hover:shadow-md cursor-pointer' : 'cursor-default'
-              } ${
-                doc.id === highlightedId
+              className={`bg-surface border p-5 rounded-xl transition-all flex justify-between items-start ${isSelectMode || user?.role !== 'admin' ? 'hover:shadow-md cursor-pointer' : 'cursor-default'
+                } ${doc.id === highlightedId
                   ? 'highlight-row-active'
                   : selectedDocIds.includes(doc.id)
-                  ? 'border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm'
-                  : 'border-border'
-              }`}
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm'
+                    : 'border-border'
+                }`}
               onClick={() => {
                 if (isSelectMode) {
                   setSelectedDocIds(prev =>
@@ -705,11 +697,10 @@ const DocumentList = () => {
                           e.stopPropagation();
                           handleTogglePin(doc.id, doc.is_pinned);
                         }}
-                        className={`transition-colors p-1 cursor-pointer rounded-lg hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center ${
-                          doc.is_pinned 
-                            ? 'text-amber-500 hover:text-amber-600' 
-                            : 'text-text-secondary hover:text-primary'
-                        }`}
+                        className={`transition-colors p-1 cursor-pointer rounded-lg hover:bg-black/5 dark:hover:bg-white/5 flex items-center justify-center ${doc.is_pinned
+                          ? 'text-amber-500 hover:text-amber-600'
+                          : 'text-text-secondary hover:text-primary'
+                          }`}
                         title={doc.is_pinned ? 'Bỏ ghim tài liệu' : 'Ghim tài liệu lên đầu'}
                       >
                         <Pin className={`w-4 h-4 ${doc.is_pinned ? 'fill-amber-500' : ''}`} />
@@ -760,8 +751,8 @@ const DocumentList = () => {
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
                     className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${currentPage === pageNum
-                        ? 'bg-primary text-white shadow-sm border border-primary'
-                        : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                      ? 'bg-primary text-white shadow-sm border border-primary'
+                      : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
                       }`}
                   >
                     {pageNum}
@@ -788,7 +779,7 @@ const DocumentList = () => {
             <div
               key={f.id}
               onClick={() => handleOpenFolder(f.id)}
-              className="bg-surface border border-border hover:border-primary/45 rounded-2xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
+              className="bg-surface border border-border hover:border-primary/45 rounded-xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
             >
               <div className="flex justify-between items-start">
                 <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform duration-200">
@@ -822,7 +813,7 @@ const DocumentList = () => {
           ))}
 
           {filteredFolders.length === 0 && (
-            <div className="col-span-3 flex flex-col items-center justify-center p-12 bg-surface border border-border border-dashed rounded-2xl">
+            <div className="col-span-3 flex flex-col items-center justify-center p-12 bg-surface border border-border border-dashed rounded-xl">
               <Folder className="w-12 h-12 opacity-20 text-text-secondary mb-3" />
               <p className="text-text-secondary font-medium text-sm">
                 {folders.length === 0 ? "Chưa có thư mục nào được tạo." : "Không tìm thấy thư mục phù hợp."}
@@ -843,9 +834,8 @@ const DocumentList = () => {
           {paginatedDeletedDocs.map(doc => (
             <div
               key={doc.id}
-              className={`bg-surface border p-5 rounded-xl flex justify-between items-start transition-all ${
-                doc.id === highlightedId ? 'highlight-row-active' : 'border-border'
-              }`}
+              className={`bg-surface border p-5 rounded-xl flex justify-between items-start transition-all ${doc.id === highlightedId ? 'highlight-row-active' : 'border-border'
+                }`}
             >
               <div className="flex-1 min-w-0 pr-4">
                 <div className="flex items-center space-x-3 mb-2">
@@ -926,8 +916,8 @@ const DocumentList = () => {
                     key={pageNum}
                     onClick={() => setDeletedCurrentPage(pageNum)}
                     className={`w-8 h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${deletedCurrentPage === pageNum
-                        ? 'bg-primary text-white shadow-sm border border-primary'
-                        : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
+                      ? 'bg-primary text-white shadow-sm border border-primary'
+                      : 'bg-surface border border-border text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5'
                       }`}
                   >
                     {pageNum}

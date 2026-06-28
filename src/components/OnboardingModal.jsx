@@ -115,7 +115,7 @@ const OnboardingModal = () => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-md px-4 select-none">
-      <div className="relative w-full max-w-xl bg-surface/95 dark:bg-slate-900/95 border border-border p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col justify-between overflow-hidden transition-all duration-300 text-text-primary">
+      <div className="relative w-full max-w-xl bg-surface/95 dark:bg-slate-900/95 border border-border p-6 sm:p-8 rounded-xl shadow-2xl flex flex-col justify-between overflow-hidden transition-all duration-300 text-text-primary">
 
         {/* Decorative subtle ambient lights */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl -z-10" />
@@ -172,7 +172,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt.label}
                       onClick={() => handleSingleSelect('major', opt.label)}
-                      className={`flex items-center space-x-3 p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
+                      className={`flex items-center space-x-3 p-3.5 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
@@ -220,7 +220,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt.label}
                       onClick={() => handleSingleSelect('usedAiBefore', opt.label)}
-                      className={`flex items-start space-x-4 p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer w-full ${isSelected
+                      className={`flex items-start space-x-4 p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer w-full ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
@@ -262,7 +262,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt}
                       onClick={() => handleMultiSelect('aiPurpose', opt)}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
+                      className={`flex items-center justify-between p-3.5 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
@@ -301,7 +301,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt}
                       onClick={() => handleMultiSelect('storagePreference', opt)}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
+                      className={`flex items-center justify-between p-3.5 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
@@ -340,7 +340,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt}
                       onClick={() => handleMultiSelect('documentTypes', opt)}
-                      className={`flex items-center justify-between p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
+                      className={`flex items-center justify-between p-3.5 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
@@ -379,7 +379,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt.label}
                       onClick={() => handleSingleSelect('featureOfInterest', opt.label)}
-                      className={`flex items-center space-x-3 p-3.5 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer w-full ${isSelected
+                      className={`flex items-center space-x-3 p-3.5 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer w-full ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}
@@ -416,7 +416,7 @@ const OnboardingModal = () => {
                     <button
                       key={opt.label}
                       onClick={() => handleSingleSelect('pricingWillingness', opt.label)}
-                      className={`flex items-center space-x-3.5 p-4 rounded-2xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer w-full ${isSelected
+                      className={`flex items-center space-x-3.5 p-4 rounded-xl border text-left text-xs font-semibold transition-all duration-200 cursor-pointer w-full ${isSelected
                         ? 'border-primary bg-primary/5 dark:bg-primary/10 text-primary dark:text-emerald-400 shadow-md shadow-primary/10'
                         : 'border-border bg-surface hover:border-text-secondary/30 dark:bg-slate-800/40 text-text-primary'
                         }`}

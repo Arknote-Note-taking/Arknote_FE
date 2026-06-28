@@ -4,7 +4,7 @@ import { FileText, Trash2, Shield, CalendarDays, ExternalLink } from 'lucide-rea
 const DocumentCard = ({ doc, onClick, onDelete }) => {
   return (
     <div 
-      className="bg-surface/50 border border-white/10 p-5 rounded-2xl hover:bg-surface transition-all cursor-pointer group flex flex-col justify-between"
+      className="bg-surface/50 border border-white/10 p-5 rounded-xl hover:bg-surface transition-all cursor-pointer group flex flex-col justify-between"
       onClick={() => onClick(doc)}
     >
       <div>

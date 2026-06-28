@@ -163,11 +163,10 @@ const AiAnalysis = () => {
     try {
       const res = await API.get('/ai/chats');
       setChats(res.data);
-      if (res.data.length > 0) {
-        setCurrentChatId(res.data[0].id);
-        setContextDocId(res.data[0].context_doc_id);
-        setContextFolderId(res.data[0].context_folder_id);
-      }
+      // Default to new chat upon entering the page, do not auto-select the first chat
+      setCurrentChatId(null);
+      setContextDocId(null);
+      setContextFolderId(null);
     } catch (err) {
       console.error('Failed to load chats:', err);
     }
@@ -530,13 +529,22 @@ const AiAnalysis = () => {
 
   return (
     <div className="w-[calc(100%+4rem)] -mx-8 -my-8 flex flex-col h-[calc(100vh-56px)] overflow-hidden bg-background">
-      <div className="flex flex-row items-stretch flex-1 h-full overflow-hidden">
+      <div className="flex flex-row items-stretch flex-1 h-full overflow-hidden relative">
+        {/* Mobile Sidebar Backdrop */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 z-20 md:hidden animate-fadeIn"
+          />
+        )}
 
         {/* LEFT COLUMN: Collapsible Sidebar styled like Gemini */}
-        <div className={`shrink-0 flex flex-col transition-all duration-300 ease-in-out h-full overflow-hidden ${sidebarOpen ? 'w-[280px]' : 'w-[48px]'}`}>
+        <div className={`shrink-0 flex flex-col transition-all duration-300 ease-in-out h-full overflow-hidden z-30 absolute md:static bg-surface border-r border-border shadow-xl md:shadow-none ${
+          sidebarOpen ? 'w-[280px] translate-x-0' : 'w-0 -translate-x-full md:w-[48px] md:translate-x-0'
+        }`}>
           {/* Collapsed view: just a toggle button */}
           {!sidebarOpen ? (
-            <div className="flex flex-col items-center h-full bg-surface border-r border-border py-4 gap-3 shrink-0">
+            <div className="hidden md:flex flex-col items-center h-full bg-surface py-4 gap-3 shrink-0 w-[48px]">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer"

@@ -180,7 +180,7 @@ const DocumentSelectModal = ({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl p-6 w-full max-w-2xl relative shadow-2xl flex flex-col max-h-[85vh]">
+      <div className="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl relative shadow-2xl flex flex-col max-h-[85vh]">
         <button onClick={onClose} className="absolute right-4 top-4 text-text-secondary hover:text-text-primary bg-black/5 rounded-full p-2 transition-colors z-[210]">
           <X className="w-5 h-5"/>
         </button>
@@ -363,7 +363,7 @@ const DocumentSelectModal = ({
 
             {/* Dropzone */}
             <div 
-              className="border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center justify-center bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer group mb-4"
+              className="border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center justify-center bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer group mb-4"
               onClick={() => fileInputRef.current?.click()}
             >
               <div className="bg-primary/10 p-3 rounded-full text-primary group-hover:scale-110 transition-transform mb-3">

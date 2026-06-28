@@ -1,15 +1,20 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
   const { notifications, unreadCount, markAllAsRead, markAsRead, clearNotifications, deleteNotification } = useContext(SocketContext);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
@@ -75,12 +80,31 @@ const MainLayout = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-background text-text-primary overflow-hidden transition-colors duration-300">
+      {/* Mobile Sidebar Backdrop */}
+      {isMobileSidebarOpen && (
+        <div
+          onClick={() => setIsMobileSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-fadeIn"
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-surface border-r border-border flex flex-col justify-between shrink-0 h-full transition-colors duration-300">
+      <aside className={`w-64 bg-surface border-r border-border flex flex-col justify-between shrink-0 h-full transition-all duration-300 fixed md:static inset-y-0 left-0 z-50 md:translate-x-0 ${
+        isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
         <div>
-          <NavLink to="/" className="h-16 flex items-center px-6 hover:opacity-85 transition-opacity">
-            <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-[#52B788] bg-clip-text text-transparent">Arknote</h1>
-          </NavLink>
+          <div className="h-16 flex items-center justify-between px-6 border-b border-border md:border-b-0 shrink-0">
+            <NavLink to="/" className="flex items-center hover:opacity-85 transition-opacity">
+              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-[#52B788] bg-clip-text text-transparent">Arknote</h1>
+            </NavLink>
+            <button
+              onClick={() => setIsMobileSidebarOpen(false)}
+              className="p-1 rounded-xl text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 md:hidden cursor-pointer"
+              title="Đóng menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
           <nav className="mt-4 px-3 space-y-0.5">
             {navItems.map((item) => {
               const active = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
@@ -103,43 +127,7 @@ const MainLayout = ({ children }) => {
         </div>
         <div className="p-4 border-t border-border space-y-4">
           {/* Plan status card */}
-          {user?.role !== 'admin' && (
-            <div className="bg-background border border-border p-3.5 rounded-2xl flex flex-col space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Gói tài khoản</span>
-                {user?.is_pro ? (
-                  <span className="text-[9px] bg-amber-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
-                    Pro
-                  </span>
-                ) : (
-                  <span className="text-[9px] bg-slate-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-slate-500/25 uppercase tracking-wider">
-                    Free
-                  </span>
-                )}
-              </div>
-              {!user?.is_pro && (
-                <div className="flex items-center justify-between text-xs font-semibold text-text-secondary mt-1">
-                  <span>Tín dụng AI:</span>
-                  <span className="text-text-primary font-bold">{user?.ai_credits_remaining !== undefined ? user.ai_credits_remaining : 30} lượt</span>
-                </div>
-              )}
-              {!user?.is_pro && (
-                <button
-                  onClick={() => navigate('/#pricing')}
-                  className="text-[10px] text-primary hover:text-primary-dark font-extrabold w-fit hover:underline text-left cursor-pointer transition mt-1"
-                >
-                  Nâng cấp lên PRO
-                </button>
-              )}
-            </div>
-          )}
-
-          <button
-            onClick={handleLogout}
-            className="w-full py-2 text-sm text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all rounded-xl text-left px-4 cursor-pointer flex items-center space-x-2"
-          >
-            <span>Sign Out</span>
-          </button>
+          {/* Sidebar footer sections removed */}
         </div>
       </aside>
 
@@ -147,7 +135,14 @@ const MainLayout = ({ children }) => {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
         <header className="h-14 bg-surface border-b border-border flex items-center justify-between px-6 shrink-0 transition-colors duration-300">
-          <div className="flex items-center text-text-secondary">
+          <div className="flex items-center space-x-3 text-text-secondary">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="p-1.5 rounded-xl text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 md:hidden cursor-pointer border border-border"
+              title="Mở menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <div className="text-xs text-text-secondary/50 font-medium hidden sm:block">Arknote</div>
           </div>
           <div className="flex items-center space-x-3">
@@ -162,6 +157,24 @@ const MainLayout = ({ children }) => {
             >
               {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
+
+            {/* PRO status badge - between Dark Mode and Notifications */}
+            {user?.role !== 'admin' && (
+              <div className="flex items-center">
+                {user?.is_pro ? (
+                  <span className="text-[10px] bg-amber-500 text-white font-black px-2.5 py-1 rounded-full shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
+                    PRO
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => navigate('/#pricing')}
+                    className="text-[10px] bg-slate-500/10 hover:bg-primary/20 text-text-primary border border-border px-2.5 py-1 rounded-full transition-all uppercase tracking-wider font-extrabold cursor-pointer"
+                  >
+                    FREE
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Notifications Dropdown */}
             <div className="relative">
@@ -179,7 +192,7 @@ const MainLayout = ({ children }) => {
               </button>
 
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-2xl shadow-xl z-[250] overflow-hidden transform origin-top-right transition-all">
+                <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-xl z-[250] overflow-hidden transform origin-top-right transition-all">
                   <div className="p-4 border-b border-border flex items-center justify-between bg-background">
                     <span className="font-extrabold text-sm text-text-primary">Thông báo</span>
                     <div className="flex space-x-2 text-[10px]">

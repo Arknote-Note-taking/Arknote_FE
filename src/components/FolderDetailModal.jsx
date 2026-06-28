@@ -269,7 +269,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-3xl p-6 w-full max-w-2xl relative shadow-2xl flex flex-col max-h-[70vh]">
+      <div className="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl relative shadow-2xl flex flex-col max-h-[70vh]">
 
         {/* Absolute Close */}
         <button onClick={onClose} className="absolute right-4 top-4 text-text-secondary hover:text-text-primary bg-black/5 dark:bg-white/5 rounded-full p-1 transition-colors z-[110]">
@@ -352,7 +352,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
 
             {/* Sharing UI Section */}
             {showShareSection && folder.user_id === user?.id && (
-              <div className="bg-background border border-border rounded-2xl p-4 mb-4 shrink-0 space-y-3">
+              <div className="bg-background border border-border rounded-xl p-4 mb-4 shrink-0 space-y-3">
                 <h4 className="text-xs font-bold text-text-primary flex items-center space-x-1.5">
                   <Users className="w-4 h-4 text-primary" />
                   <span>Quản lý chia sẻ thành viên nhóm</span>
@@ -442,7 +442,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
               {folder.documents?.map(doc => (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between p-4 bg-background hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-2xl transition-all hover:scale-[1.01] group"
+                  className="flex items-center justify-between p-4 bg-background hover:bg-black/5 dark:hover:bg-white/5 border border-border rounded-xl transition-all hover:scale-[1.01] group"
                 >
                   <div className="flex items-center space-x-3.5 overflow-hidden flex-1 mr-4">
                     <input

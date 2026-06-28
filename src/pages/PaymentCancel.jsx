@@ -11,7 +11,7 @@ const PaymentCancel = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-red-500/5 rounded-full blur-3xl -z-10 animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-[#52B788]/5 rounded-full blur-3xl -z-10" />
 
-      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden text-center">
+      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-xl p-8 shadow-2xl relative overflow-hidden text-center">
         {/* Decorative Top Line */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 to-amber-500" />
 

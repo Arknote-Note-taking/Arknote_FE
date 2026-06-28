@@ -68,7 +68,7 @@ const PaymentSuccess = () => {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-3xl -z-10 animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-[#52B788]/5 rounded-full blur-3xl -z-10" />
 
-      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-md bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-xl p-8 shadow-2xl relative overflow-hidden">
         {/* Decorative Top Line */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary to-[#52B788]" />
 
@@ -97,7 +97,7 @@ const PaymentSuccess = () => {
             </p>
 
             {/* Receipt details */}
-            <div className="w-full bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5 mb-8 text-left space-y-3.5">
+            <div className="w-full bg-slate-950/60 border border-slate-800/80 rounded-xl p-5 mb-8 text-left space-y-3.5">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-slate-400 font-medium">Mã đơn hàng</span>
                 <span className="text-slate-200 font-bold font-mono">#{orderCode}</span>

@@ -44,7 +44,7 @@ const AuthLayout = ({ children }) => {
         <div className="hidden lg:flex w-1/2 flex-col justify-center p-12 pr-24">
           {/* Logo / Brand */}
           <div className="flex items-center space-x-3 mb-10">
-            <div className="w-14 h-14 bg-white/20 backdrop-blur-lg rounded-2xl flex items-center justify-center shadow-2xl border border-white/40">
+            <div className="w-14 h-14 bg-white/20 backdrop-blur-lg rounded-xl flex items-center justify-center shadow-2xl border border-white/40">
               <BookOpen className="w-7 h-7 text-white drop-shadow-md" />
             </div>
             <span className="text-4xl font-black text-white tracking-tighter drop-shadow-lg">Arknote</span>
@@ -69,14 +69,14 @@ const AuthLayout = ({ children }) => {
           <div className="w-full max-w-md">
             {/* Logo on mobile only */}
             <div className="flex lg:hidden items-center justify-center space-x-3 mb-8">
-              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-lg border border-white/30">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center shadow-lg border border-white/30">
                 <BookOpen className="w-6 h-6 text-white" />
               </div>
               <span className="text-3xl font-black text-white tracking-tight drop-shadow-lg">Arknote</span>
             </div>
 
             {/* Form card — uses CSS variable bg-surface which adapts to dark mode */}
-            <div className="bg-surface/95 dark:bg-surface backdrop-blur-sm rounded-2xl shadow-2xl border border-border/60 dark:border-border transition-colors duration-300">
+            <div className="bg-surface/95 dark:bg-surface backdrop-blur-sm rounded-xl shadow-2xl border border-border/60 dark:border-border transition-colors duration-300">
               {children}
             </div>
           </div>
