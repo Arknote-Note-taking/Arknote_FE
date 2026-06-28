@@ -102,8 +102,8 @@ const Dashboard = () => {
       </div>
 
       {documents.length === 0 ? (
-        <div className="border-2 border-dashed border-white/10 rounded-3xl p-16 flex flex-col items-center justify-center text-center">
-          <div className="bg-surface p-4 rounded-3xl mb-4 border border-white/5">
+        <div className="border-2 border-dashed border-white/10 rounded-xl p-16 flex flex-col items-center justify-center text-center">
+          <div className="bg-surface p-4 rounded-xl mb-4 border border-white/5">
             <Search className="w-10 h-10 text-text-secondary/50" />
           </div>
           <h3 className="text-xl font-medium text-white mb-2">No documents found</h3>

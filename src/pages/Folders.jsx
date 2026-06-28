@@ -266,7 +266,7 @@ const Folders = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
 
           {/* LEFT SIDE: Documents List in Folder */}
-          <div className="lg:col-span-1 bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
+          <div className="lg:col-span-1 bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
             <div className="flex items-center justify-between mb-4 border-b border-border pb-4 shrink-0">
               <div className="flex items-center space-x-3 w-full min-w-0">
                 <Folder className="w-6 h-6 text-primary shrink-0" />
@@ -378,7 +378,7 @@ const Folders = () => {
           </div>
 
           {/* RIGHT SIDE: Folder AI Chat Box */}
-          <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
+          <div className="lg:col-span-2 bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
             <div className="flex items-center justify-between border-b border-border pb-4 mb-4 shrink-0">
               <div className="flex items-center space-x-2">
                 <MessageSquare className="w-5 h-5 text-primary" />
@@ -452,7 +452,7 @@ const Folders = () => {
       </div>
 
       {/* Creating new folder panel */}
-      <form onSubmit={handleCreateFolder} className="bg-surface border border-border p-6 rounded-2xl mb-8 flex flex-col md:flex-row items-center gap-4 shadow-sm">
+      <form onSubmit={handleCreateFolder} className="bg-surface border border-border p-6 rounded-xl mb-8 flex flex-col md:flex-row items-center gap-4 shadow-sm">
         <div className="flex items-center space-x-3 w-full md:flex-1">
           <FolderPlus className="w-6 h-6 text-primary shrink-0" />
           <input
@@ -482,7 +482,7 @@ const Folders = () => {
               if (editingFolderId === f.id) return;
               handleSelectFolder(f);
             }}
-            className="bg-surface border border-border hover:border-primary/40 rounded-2xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
+            className="bg-surface border border-border hover:border-primary/40 rounded-xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
           >
             <div className="flex justify-between items-start">
               <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform duration-200">
@@ -543,7 +543,7 @@ const Folders = () => {
       </div>
 
       {folders.length === 0 && (
-        <div className="flex flex-col items-center justify-center p-12 bg-surface border border-border border-dashed rounded-2xl mt-4">
+        <div className="flex flex-col items-center justify-center p-12 bg-surface border border-border border-dashed rounded-xl mt-4">
           <Folder className="w-12 h-12 opacity-20 text-text-secondary mb-3" />
           <p className="text-text-secondary font-medium text-sm">Chưa có thư mục nào được tạo.</p>
           <p className="text-xs text-text-secondary/60 mt-1">Hãy nhập tên thư mục ở trên để bắt đầu nhóm các tài liệu lại với nhau!</p>

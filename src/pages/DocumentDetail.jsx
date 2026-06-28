@@ -484,7 +484,7 @@ const DocumentDetail = () => {
                 {/* Proposal 2: AI Flashcards Activation Panel */}
                 {canEditDoc && (
                   <div className="mt-8 border-t border-border pt-6">
-                    <div className="bg-gradient-to-r from-primary/10 to-[#52B788]/10 border border-primary/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
+                    <div className="bg-gradient-to-r from-primary/10 to-[#52B788]/10 border border-primary/20 rounded-xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group">
                       <div className="space-y-1">
                         <div className="flex items-center space-x-2">
                           <span className="text-primary font-extrabold text-xs flex items-center space-x-1 uppercase tracking-wider">
@@ -701,7 +701,7 @@ const DocumentDetail = () => {
       {/* Proposal 4: Highlight Annotation Modal */}
       {showAnnotationModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[300]">
-          <div className="bg-surface border border-border w-full max-w-md p-6 rounded-3xl shadow-xl space-y-4">
+          <div className="bg-surface border border-border w-full max-w-md p-6 rounded-xl shadow-xl space-y-4">
             <h3 className="text-base font-bold text-text-primary">Thêm ghi chú cho đoạn Highlight</h3>
             <div className="bg-background border border-border rounded-xl p-3 text-xs italic text-text-secondary leading-relaxed">
               "{selectedText}"

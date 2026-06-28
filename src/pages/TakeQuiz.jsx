@@ -36,7 +36,7 @@ const TakeQuiz = () => {
 
   useEffect(() => {
     const mainEl = document.querySelector('main.custom-scrollbar');
-    
+
     const handleScroll = () => {
       const scrollTop = mainEl ? mainEl.scrollTop : window.scrollY;
       if (scrollTop > 300) {
@@ -263,7 +263,7 @@ const TakeQuiz = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* LEFT / CENTER COLUMN: Question Card */}
           <div className="lg:col-span-3 space-y-6">
-            <div className="bg-surface border border-border rounded-2xl p-6 md:p-8 shadow-sm relative">
+            <div className="bg-surface border border-border rounded-xl p-6 md:p-8 shadow-sm relative">
 
               {/* Header / Progress bar */}
               <div className="flex justify-between items-center text-xs text-text-secondary font-bold mb-4">
@@ -293,8 +293,8 @@ const TakeQuiz = () => {
                         key={idx}
                         onClick={() => handleSelectOption(option)}
                         className={`w-full text-left p-4 border rounded-xl text-sm transition-all flex items-center justify-between cursor-pointer ${isSelected
-                            ? 'border-primary bg-primary/5 text-primary font-bold ring-1 ring-primary'
-                            : 'border-border bg-background hover:bg-black/5 dark:hover:bg-white/5 text-text-primary'
+                          ? 'border-primary bg-primary/5 text-primary font-bold ring-1 ring-primary'
+                          : 'border-border bg-background hover:bg-black/5 dark:hover:bg-white/5 text-text-primary'
                           }`}
                       >
                         <span>{option}</span>
@@ -339,7 +339,7 @@ const TakeQuiz = () => {
           {/* RIGHT COLUMN: Sidebar Timer & Quick Grid */}
           <div className="lg:col-span-1 space-y-6">
             {/* Timer Card */}
-            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm text-center">
+            <div className="bg-surface border border-border rounded-xl p-5 shadow-sm text-center">
               <div className="flex items-center justify-center space-x-2 text-text-secondary mb-2">
                 <Clock className="w-5 h-5 text-primary" />
                 <span className="text-xs uppercase font-extrabold tracking-wider">Thời gian còn lại</span>
@@ -353,7 +353,7 @@ const TakeQuiz = () => {
             </div>
 
             {/* Indicators Panel Grid */}
-            <div className="bg-surface border border-border rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="bg-surface border border-border rounded-xl p-5 shadow-sm space-y-4">
               <h4 className="text-xs font-black uppercase text-text-primary tracking-wider text-center border-b border-border pb-3">
                 Bảng câu hỏi
               </h4>
@@ -406,7 +406,7 @@ const TakeQuiz = () => {
         {/* Submit Confirmation Modal */}
         {showSubmitModal && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4">
-            <div className="bg-surface border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl animate-scaleUp">
+            <div className="bg-surface border border-border rounded-xl max-w-md w-full p-6 shadow-2xl animate-scaleUp">
               <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4">
                 <HelpCircle className="w-6 h-6" />
               </div>
@@ -452,7 +452,7 @@ const TakeQuiz = () => {
 
     return (
       <div className="max-w-[700px] mx-auto pb-12">
-        <div className="bg-surface border border-border rounded-2xl p-8 text-center shadow-md space-y-6">
+        <div className="bg-surface border border-border rounded-xl p-8 text-center shadow-md space-y-6">
           <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto">
             <Award className="w-10 h-10" />
           </div>
@@ -522,7 +522,7 @@ const TakeQuiz = () => {
       <div className="max-w-[900px] mx-auto pb-12 space-y-6">
 
         {/* Review Header Banner */}
-        <div className="flex items-center justify-between bg-surface border border-border rounded-2xl p-5 shadow-sm shrink-0">
+        <div className="flex items-center justify-between bg-surface border border-border rounded-xl p-5 shadow-sm shrink-0">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => navigate('/quizzes')}
@@ -536,17 +536,10 @@ const TakeQuiz = () => {
                 Chi tiết đáp án & Giải thích
               </h1>
               <p className="text-xs text-text-secondary mt-0.5">
-                {quiz.title} • Kết quả: <strong className="text-primary font-black">{attempt.score}/{quiz.questions.length}</strong> ({Math.round((attempt.score / quiz.questions.length) * 100)}%)
+                {quiz.title?.replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '')} • Kết quả: <strong className="text-primary font-black">{attempt.score}/{quiz.questions.length}</strong> ({Math.round((attempt.score / quiz.questions.length) * 100)}%)
               </p>
             </div>
           </div>
-
-          <button
-            onClick={() => navigate('/quizzes')}
-            className="bg-primary hover:bg-primary-dark text-white font-bold text-xs py-2.5 px-4 rounded-xl transition shadow-md shadow-primary/15 cursor-pointer"
-          >
-            Quay lại lịch sử
-          </button>
         </div>
 
         {/* Scrollable Questions list */}
@@ -559,11 +552,11 @@ const TakeQuiz = () => {
             return (
               <div
                 key={qIdx}
-                className={`bg-surface border rounded-2xl p-6 md:p-8 shadow-sm space-y-4 transition ${hasAnswered
-                    ? isCorrect
-                      ? 'border-emerald-500/20'
-                      : 'border-red-500/20'
-                    : 'border-border'
+                className={`bg-surface border rounded-xl p-6 md:p-8 shadow-sm space-y-4 transition ${hasAnswered
+                  ? isCorrect
+                    ? 'border-emerald-500/20'
+                    : 'border-red-500/20'
+                  : 'border-border'
                   }`}
               >
 

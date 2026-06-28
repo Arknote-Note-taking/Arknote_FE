@@ -153,7 +153,7 @@ const Register = () => {
         </div>
 
         <div className="flex flex-col space-y-3">
-          <button 
+          <button
             type="button"
             onClick={handleGoogleLogin}
             className="w-full flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"

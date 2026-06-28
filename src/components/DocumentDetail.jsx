@@ -56,7 +56,7 @@ const DocumentDetail = ({ doc, onClose }) => {
         </div>
 
         {/* AI Summarize Block */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6 relative overflow-hidden group">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6 relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-purple-500 opacity-50"></div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-white font-medium flex items-center space-x-2">
@@ -84,7 +84,7 @@ const DocumentDetail = ({ doc, onClose }) => {
         </div>
 
         {/* QnA Block */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6">
+        <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6">
            <h3 className="text-white font-medium flex items-center space-x-2 mb-4">
               <MessageSquare className="w-5 h-5 text-blue-400" />
               <span>Ask Document</span>

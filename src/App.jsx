@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { ConfirmProvider } from './context/ConfirmContext';
+import { LanguageProvider } from './context/LanguageContext';
 import MainLayout from './layouts/MainLayout';
 
 // Initialize dark mode from localStorage before anything renders
@@ -92,20 +93,22 @@ const AppContent = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Toaster position="bottom-right" toastOptions={{
-         style: {
-           background: '#333',
-           color: '#fff',
-           fontSize: '14px',
-         },
-      }}/>
-      <ConfirmProvider>
-        <SocketProvider>
-          <AppContent />
-        </SocketProvider>
-      </ConfirmProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <Toaster position="bottom-right" toastOptions={{
+           style: {
+             background: '#333',
+             color: '#fff',
+             fontSize: '14px',
+           },
+        }}/>
+        <ConfirmProvider>
+          <SocketProvider>
+            <AppContent />
+          </SocketProvider>
+        </ConfirmProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 

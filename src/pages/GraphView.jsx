@@ -20,6 +20,38 @@ const getSubjectColorStr = (subject) => {
   return '#9CA3AF';
 };
 
+// Custom collision force to bypass Vite import / resolution issues
+const customCollideForce = (radius) => {
+  let nodes = [];
+  const force = (alpha) => {
+    for (let i = 0; i < nodes.length; i++) {
+      const nodeA = nodes[i];
+      for (let j = i + 1; j < nodes.length; j++) {
+        const nodeB = nodes[j];
+        const dx = nodeB.x - nodeA.x;
+        const dy = nodeB.y - nodeA.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const minDist = radius * 2;
+        if (dist < minDist) {
+          const overlap = minDist - dist;
+          // Calculate push direction and scale
+          const forceX = (dx / (dist || 1)) * overlap * 0.5;
+          const forceY = (dy / (dist || 1)) * overlap * 0.5;
+          // Apply velocity adjustments scaled by alpha
+          nodeB.vx += forceX * alpha;
+          nodeB.vy += forceY * alpha;
+          nodeA.vx -= forceX * alpha;
+          nodeA.vy -= forceY * alpha;
+        }
+      }
+    }
+  };
+  force.initialize = (_) => {
+    nodes = _;
+  };
+  return force;
+};
+
 // Polyfill roundRect for canvas if needed
 if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
@@ -80,9 +112,16 @@ const GraphView = () => {
     return () => window.removeEventListener('resize', updateDimensions);
   }, [loadingGraph]);
 
-  // Center Graph on load
+  // Config forces and Center Graph on load
   useEffect(() => {
-    if (!loadingGraph && graphData.nodes.length > 0) {
+    if (!loadingGraph && graphData.nodes.length > 0 && fgRef.current) {
+      // Balanced repulsion between nodes
+      fgRef.current.d3Force('charge').strength(-60);
+      // Balanced link distance between connected nodes
+      fgRef.current.d3Force('link').distance(40);
+      // Add custom collision force to prevent rectangular node boundaries from overlapping
+      fgRef.current.d3Force('collide', customCollideForce(22));
+      
       setTimeout(() => {
         fgRef.current?.zoomToFit(500, 50);
       }, 500);
@@ -158,8 +197,6 @@ const GraphView = () => {
 
   return (
     <div className="max-w-[1600px] w-full mx-auto h-full flex flex-col">
-      <h1 className="text-2xl font-bold text-text-primary mb-1">Knowledge Map</h1>
-      <p className="text-text-secondary text-sm mb-6">Bản đồ liên kết giữa các tài liệu</p>
 
       <div className="flex h-[calc(100vh-180px)] gap-6">
 
@@ -186,6 +223,27 @@ const GraphView = () => {
                 ctx.fillRect(node.x - w / 2, node.y - h / 2, w, h);
               }}
               onNodeClick={handleNodeClick}
+              onNodeDragStart={(node) => {
+                // Pin all other nodes in place so they remain stationary
+                graphData.nodes.forEach(n => {
+                  if (n.id !== node.id) {
+                    n.fx = n.x;
+                    n.fy = n.y;
+                  }
+                });
+              }}
+              onNodeDragEnd={(node) => {
+                // Keep the dragged node pinned at its dropped position
+                node.fx = node.x;
+                node.fy = node.y;
+                // Release all other nodes to allow D3 simulation to settle
+                graphData.nodes.forEach(n => {
+                  if (n.id !== node.id) {
+                    n.fx = null;
+                    n.fy = null;
+                  }
+                });
+              }}
               linkColor={(link) => {
                 const isDark = document.documentElement.classList.contains('dark');
                 const isHighlighted = (link.source.id || link.source) === selectedNodeId || (link.target.id || link.target) === selectedNodeId;

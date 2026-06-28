@@ -78,7 +78,6 @@ const Login = () => {
           </Link>
         </div>
         <h2 className="text-center text-3xl font-extrabold text-text-primary mb-2 tracking-tight">Welcome back!</h2>
-        <p className="text-center text-sm text-text-secondary font-medium mb-8">Enter your Credentials to access your account</p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
@@ -156,7 +155,7 @@ const Login = () => {
         </div>
 
         <div className="flex flex-col space-y-3">
-          <button 
+          <button
             onClick={handleGoogleLogin}
             type="button"
             className="w-full flex items-center justify-center space-x-2 border border-border rounded-lg py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
