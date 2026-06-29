@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import { FileText, Layers, Award, Loader2, Play, PlusCircle, Network, ArrowRight, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
@@ -13,6 +14,7 @@ const getTagColor = (subject) => {
 };
 
 const Overview = () => {
+  const { language, t } = useLanguage();
   const [stats, setStats] = useState(null);
   const [deckCount, setDeckCount] = useState(0);
   const [quizCount, setQuizCount] = useState(0);
@@ -45,21 +47,21 @@ const Overview = () => {
   }, []);
 
   const formatDuration = (seconds) => {
-    if (!seconds) return '0 giây';
+    if (!seconds) return language === 'vi' ? '0 giây' : '0s';
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return m > 0 ? `${m}p ${s}s` : `${s}s`;
+    if (language === 'vi') {
+      return m > 0 ? `${m}p ${s}s` : `${s}s`;
+    } else {
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
   };
 
   if (loading || !stats) return <div className="flex justify-center items-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   return (
     <div className="max-w-[1600px] w-full mx-auto space-y-6 pb-12 animate-fadeIn">
-      {/* Title Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-[#52B788] bg-clip-text text-transparent">Tổng quan hệ thống</h1>
-        <p className="text-text-secondary text-sm">Thống kê hoạt động lưu trữ và ôn tập của bạn</p>
-      </div>
+
 
       {/* Stats cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -69,7 +71,7 @@ const Overview = () => {
           className="border border-border bg-surface hover:border-primary/30 p-6 rounded-xl flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
         >
           <div className="space-y-1.5">
-            <p className="text-text-secondary text-xs uppercase font-bold tracking-wider">Tài liệu lưu trữ</p>
+            <p className="text-text-secondary text-xs uppercase font-bold tracking-wider">{t('totalDocs')}</p>
             <p className="text-3xl font-black text-text-primary group-hover:text-primary transition-colors">{stats.totalDocs}</p>
           </div>
           <div className="p-4 bg-emerald-500/10 text-[#14b8a6] rounded-lg border border-emerald-500/10 transition-transform group-hover:scale-105">
@@ -83,7 +85,7 @@ const Overview = () => {
           className="border border-border bg-surface hover:border-primary/30 p-6 rounded-xl flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
         >
           <div className="space-y-1.5">
-            <p className="text-text-secondary text-xs uppercase font-bold tracking-wider">Bộ thẻ Flashcard</p>
+            <p className="text-text-secondary text-xs uppercase font-bold tracking-wider">{t('flashcardDecks')}</p>
             <p className="text-3xl font-black text-text-primary group-hover:text-primary transition-colors">{deckCount}</p>
           </div>
           <div className="p-4 bg-blue-500/10 text-blue-500 rounded-lg border border-blue-500/10 transition-transform group-hover:scale-105">
@@ -97,7 +99,7 @@ const Overview = () => {
           className="border border-border bg-surface hover:border-primary/30 p-6 rounded-xl flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
         >
           <div className="space-y-1.5">
-            <p className="text-text-secondary text-xs uppercase font-bold tracking-wider">Bài trắc nghiệm (Quiz)</p>
+            <p className="text-text-secondary text-xs uppercase font-bold tracking-wider">{t('quizzesCreated')}</p>
             <p className="text-3xl font-black text-text-primary group-hover:text-primary transition-colors">{quizCount}</p>
           </div>
           <div className="p-4 bg-amber-500/10 text-amber-500 rounded-lg border border-amber-500/10 transition-transform group-hover:scale-105">
@@ -109,7 +111,7 @@ const Overview = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Category breakdown (Left 1/3) */}
         <div className="lg:col-span-1 border border-border bg-surface p-6 rounded-xl shadow-sm hover:border-primary/10 transition-all">
-          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">Phân loại theo danh mục</h3>
+          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">{t('statsByCategory')}</h3>
           <div className="space-y-4">
             {stats.subjectStats.map((item, index) => {
               const percent = stats.totalDocs > 0 ? (item.count / stats.totalDocs) * 100 : 0;
@@ -124,14 +126,14 @@ const Overview = () => {
               )
             })}
             {stats.subjectStats.length === 0 && (
-              <p className="text-text-secondary italic text-xs py-4 text-center">Chưa có dữ liệu danh mục.</p>
+              <p className="text-text-secondary italic text-xs py-4 text-center">{language === 'vi' ? 'Chưa có dữ liệu danh mục.' : 'No category data.'}</p>
             )}
           </div>
         </div>
 
         {/* Recent documents table (Right 2/3) */}
         <div className="lg:col-span-2 border border-border bg-surface p-6 rounded-xl shadow-sm hover:border-primary/10 transition-all">
-          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">Tài liệu gần đây</h3>
+          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">{t('recentDocs')}</h3>
           <div className="space-y-3">
             {stats.recentDocs.map((doc, idx) => (
               <div 
@@ -147,7 +149,7 @@ const Overview = () => {
               </div>
             ))}
             {stats.recentDocs.length === 0 && (
-              <p className="text-text-secondary italic text-xs py-10 text-center">Chưa có tài liệu nào.</p>
+              <p className="text-text-secondary italic text-xs py-10 text-center">{t('noDocs')}</p>
             )}
           </div>
         </div>
@@ -157,10 +159,10 @@ const Overview = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Quiz Attempts (Left 2/3) */}
         <div className="lg:col-span-2 border border-border bg-surface p-6 rounded-xl shadow-sm hover:border-primary/10 transition-all">
-          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">Kết quả luyện tập gần đây</h3>
+          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">{t('recentAttempts')}</h3>
           <div className="space-y-3">
             {recentAttempts.map((att, idx) => {
-              const quizTitle = (att.quiz?.title || 'Bài Quiz ôn tập').replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '');
+              const quizTitle = (att.quiz?.title || (language === 'vi' ? 'Bài Quiz ôn tập' : 'Review Quiz')).replace(/^Quiz ôn tập:\s*/i, '').replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '');
               const totalQuestions = att.quiz?.questions?.length || 5;
               const percent = Math.round((att.score / totalQuestions) * 100);
               return (
@@ -175,12 +177,12 @@ const Overview = () => {
                       <Clock className="w-3 h-3 text-text-secondary/60" />
                       <span>{formatDuration(att.time_spent)}</span>
                       <span>•</span>
-                      <span>{new Date(att.completed_at || att.created_at).toLocaleDateString('vi-VN')}</span>
+                      <span>{new Date(att.completed_at || att.created_at).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                     </p>
                   </div>
                   
                   <div className="flex items-center space-x-2 shrink-0">
-                    <span className="font-black text-text-primary">{att.score}/{totalQuestions} câu</span>
+                    <span className="font-black text-text-primary">{att.score}/{totalQuestions} {language === 'vi' ? 'câu' : 'questions'}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                       percent >= 80 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                       percent >= 50 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
@@ -193,7 +195,7 @@ const Overview = () => {
               );
             })}
             {recentAttempts.length === 0 && (
-              <p className="text-text-secondary italic text-xs py-10 text-center">Chưa có lượt làm bài nào.</p>
+              <p className="text-text-secondary italic text-xs py-10 text-center">{t('noAttempts')}</p>
             )}
           </div>
         </div>
@@ -201,10 +203,10 @@ const Overview = () => {
         {/* Quick Actions (Right 1/3) */}
         {/* Recent Flashcards (Right 1/3) */}
         <div className="lg:col-span-1 border border-border bg-surface p-6 rounded-xl shadow-sm hover:border-primary/10 transition-all">
-          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">Bộ thẻ ghi nhớ gần đây</h3>
+          <h3 className="font-extrabold text-text-primary mb-5 text-sm uppercase tracking-wider">{t('recentDecks')}</h3>
           <div className="space-y-3">
             {recentDecks.map((deck, idx) => {
-              const cleanedTitle = (deck.title || 'Bộ thẻ ghi nhớ').replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '');
+              const cleanedTitle = (deck.title || (language === 'vi' ? 'Bộ thẻ ghi nhớ' : 'Flashcard Deck')).replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '');
               return (
                 <div 
                   key={idx} 
@@ -216,7 +218,7 @@ const Overview = () => {
                     <p className="text-text-secondary text-[10px] mt-0.5 truncate">
                       {deck.description && !deck.description.startsWith('Tạo tự động bằng AI từ tài liệu') ? 
                         deck.description.replace('|||public', '').trim() : 
-                        'Không có mô tả.'
+                        (language === 'vi' ? 'Không có mô tả.' : 'No description.')
                       }
                     </p>
                   </div>
@@ -228,7 +230,7 @@ const Overview = () => {
               );
             })}
             {recentDecks.length === 0 && (
-              <p className="text-text-secondary italic text-xs py-10 text-center">Chưa có bộ thẻ nào.</p>
+              <p className="text-text-secondary italic text-xs py-10 text-center">{t('noDecks')}</p>
             )}
           </div>
         </div>

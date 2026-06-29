@@ -3,10 +3,12 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
   const { notifications, unreadCount, markAllAsRead, markAsRead, clearNotifications, deleteNotification } = useContext(SocketContext);
+  const { language, t } = useLanguage();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
@@ -15,6 +17,15 @@ const MainLayout = ({ children }) => {
   useEffect(() => {
     setIsMobileSidebarOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleAppNavigate = (e) => {
+      const { path, state } = e.detail;
+      navigate(path, { state });
+    };
+    window.addEventListener('app-navigate', handleAppNavigate);
+    return () => window.removeEventListener('app-navigate', handleAppNavigate);
+  }, [navigate]);
 
   const handleNotificationClick = (notif) => {
     markAsRead(notif.id);
@@ -63,18 +74,18 @@ const MainLayout = ({ children }) => {
   }
 
   const baseNavItems = [
-    { name: 'Tổng quan', path: '/dashboard', icon: LayoutGrid },
-    { name: 'Tài liệu', path: '/documents', icon: FileText },
-    { name: 'AI phân tích', path: '/ai', icon: BrainCircuit },
-    { name: 'Knowledge Map', path: '/graph', icon: Network },
-    { name: 'Flashcard', path: '/flashcards', icon: Layers },
-    { name: 'Lịch sử Quiz', path: '/quizzes', icon: ClipboardList },
+    { name: t('overview'), path: '/dashboard', icon: LayoutGrid },
+    { name: t('documents'), path: '/documents', icon: FileText },
+    { name: t('aiAnalysis'), path: '/ai', icon: BrainCircuit },
+    { name: t('knowledgeMap'), path: '/graph', icon: Network },
+    { name: t('flashcards'), path: '/flashcards', icon: Layers },
+    { name: t('quizzes'), path: '/quizzes', icon: ClipboardList },
   ];
 
   const navItems = user?.role === 'admin'
     ? [
       ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph'),
-      { name: 'Khách hàng', path: '/users', icon: Users }
+      { name: t('users'), path: '/users', icon: Users }
     ]
     : baseNavItems;
 
@@ -194,7 +205,7 @@ const MainLayout = ({ children }) => {
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-80 bg-surface border border-border rounded-xl shadow-xl z-[250] overflow-hidden transform origin-top-right transition-all">
                   <div className="p-4 border-b border-border flex items-center justify-between bg-background">
-                    <span className="font-extrabold text-sm text-text-primary">Thông báo</span>
+                    <span className="font-extrabold text-sm text-text-primary">{t('notifications')}</span>
                     <div className="flex space-x-2 text-[10px]">
                       {unreadCount > 0 && (
                         <button

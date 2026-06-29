@@ -3,6 +3,7 @@ import API from '../services/api';
 import toast from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   Upload,
   MessageSquare,
@@ -42,6 +43,15 @@ const preprocessMarkdown = (content) => {
   return content.replace(/\n\s*\n/g, '\n\n');
 };
 
+const getDocumentIcon = (fileName) => {
+  const ext = fileName?.split('.').pop()?.toLowerCase();
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return FileVideo;
+  if (['xlsx', 'xls', 'csv'].includes(ext)) return FileSpreadsheet;
+  if (['pptx', 'ppt'].includes(ext)) return Presentation;
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return Image;
+  return FileText;
+};
+
 const MarkdownRenderer = ({ content }) => (
   <ReactMarkdown
     remarkPlugins={[remarkGfm]}
@@ -75,6 +85,7 @@ const MarkdownRenderer = ({ content }) => (
 const AiAnalysis = () => {
   const { user, refreshProfile } = useContext(AuthContext);
   const { confirm } = useConfirm();
+  const { language, t } = useLanguage();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -112,28 +123,36 @@ const AiAnalysis = () => {
 
   const studioCommands = [
     {
-      name: 'Tạo Quiz',
+      name: language === 'vi' ? 'Tạo Quiz' : 'Create Quiz',
       icon: BookOpen,
       color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20 dark:hover:bg-emerald-500/20',
-      prompt: 'Hãy tạo 5 câu hỏi trắc nghiệm (quiz) chất lượng cao dựa trên nội dung tài liệu này, có kèm đáp án và giải thích chi tiết cho từng câu.'
+      prompt: language === 'vi'
+        ? 'Hãy tạo 5 câu hỏi trắc nghiệm (quiz) chất lượng cao dựa trên nội dung tài liệu này, có kèm đáp án và giải thích chi tiết cho từng câu.'
+        : 'Please create 5 high-quality multiple choice questions (quiz) based on this document, with answers and detailed explanations for each.'
     },
     {
-      name: 'Tóm tắt sâu',
+      name: language === 'vi' ? 'Tóm tắt sâu' : 'Deep Summary',
       icon: Sparkles,
       color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20 dark:hover:bg-blue-500/20',
-      prompt: 'Hãy tóm tắt chi tiết các nội dung cốt lõi, sơ đồ lập luận hoặc cấu trúc chính của tài liệu này dưới dạng danh sách rõ ràng.'
+      prompt: language === 'vi'
+        ? 'Hãy tóm tắt chi tiết các nội dung cốt lõi, sơ đồ lập luận hoặc cấu trúc chính của tài liệu này dưới dạng danh sách rõ ràng.'
+        : 'Please summarize in detail the core contents, reasoning diagrams, or main structure of this document in a clear list.'
     },
     {
-      name: 'Trích từ khóa',
+      name: language === 'vi' ? 'Trích từ khóa' : 'Keywords',
       icon: Key,
       color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20 dark:hover:bg-amber-500/20',
-      prompt: 'Hãy liệt kê 5-10 từ khóa/thuật ngữ chuyên ngành quan trọng nhất xuất hiện trong tài liệu này kèm theo giải thích ngắn gọn ngữ nghĩa của chúng.'
+      prompt: language === 'vi'
+        ? 'Hãy liệt kê 5-10 từ khóa/thuật ngữ chuyên ngành quan trọng nhất xuất hiện trong tài liệu này kèm theo giải thích ngắn gọn ngữ nghĩa của chúng.'
+        : 'Please list 5-10 most important keywords/specialized terms appearing in this document along with brief explanations of their meaning.'
     },
     {
-      name: 'Phân tích rủi ro',
+      name: language === 'vi' ? 'Phân tích rủi ro' : 'Risks',
       icon: AlertTriangle,
       color: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 hover:bg-red-500/20 dark:hover:bg-red-500/20',
-      prompt: 'Dưới góc độ chuyên gia pháp lý và vận hành, hãy rà soát tìm các điểm rủi ro tiềm ẩn, mâu thuẫn hoặc lỗ hổng (nếu có) trong tài liệu này.'
+      prompt: language === 'vi'
+        ? 'Dưới góc độ chuyên gia pháp lý và vận hành, hãy rà soát tìm các điểm rủi ro tiềm ẩn, mâu thuẫn hoặc lỗ hổng (nếu có) trong tài liệu này.'
+        : 'From a legal and operational expert perspective, please review this document to find potential risks, contradictions, or gaps (if any).'
     }
   ];
 
@@ -390,10 +409,10 @@ const AiAnalysis = () => {
           : `${baseUrl}/ai/chat`;
 
       const body = contextDocId
-        ? { documentId: contextDocId, question: userMsg }
+        ? { documentId: contextDocId, question: userMsg, chatId: activeChatId }
         : contextFolderId
-          ? { folderId: contextFolderId, question: userMsg }
-          : { message: userMsg };
+          ? { folderId: contextFolderId, question: userMsg, chatId: activeChatId }
+          : { message: userMsg, chatId: activeChatId };
 
       const response = await fetch(url, {
         method: 'POST',
@@ -488,15 +507,15 @@ const AiAnalysis = () => {
       const res = await API.put(`/ai/chats/${chatId}`, { title: renameTitle.trim() });
       setChats(prev => prev.map(c => c.id === chatId ? { ...c, title: res.data.title } : c));
       setRenamingChatId(null);
-      toast.success('Đã đổi tên cuộc trò chuyện!');
+      toast.success(language === 'vi' ? 'Đã đổi tên cuộc trò chuyện!' : 'Chat session renamed successfully!');
     } catch (err) {
-      toast.error('Lỗi khi đổi tên cuộc trò chuyện');
+      toast.error(language === 'vi' ? 'Lỗi khi đổi tên cuộc trò chuyện' : 'Error renaming chat session');
     }
   };
 
   const handleDeleteChat = async (e, chatId) => {
     e.stopPropagation();
-    const isConfirmed = await confirm('Bạn có chắc muốn xóa cuộc trò chuyện này?');
+    const isConfirmed = await confirm(language === 'vi' ? 'Bạn có chắc muốn xóa cuộc trò chuyện này?' : 'Are you sure you want to delete this chat session?');
     if (!isConfirmed) return;
     try {
       await API.delete(`/ai/chats/${chatId}`);
@@ -506,9 +525,9 @@ const AiAnalysis = () => {
         setContextDocId(null);
         setContextFolderId(null);
       }
-      toast.success('Đã xóa cuộc trò chuyện');
+      toast.success(language === 'vi' ? 'Đã xóa cuộc trò chuyện' : 'Chat session deleted successfully');
     } catch (err) {
-      toast.error('Lỗi khi xóa cuộc trò chuyện');
+      toast.error(language === 'vi' ? 'Lỗi khi xóa cuộc trò chuyện' : 'Error deleting chat session');
     }
   };
 
@@ -548,7 +567,7 @@ const AiAnalysis = () => {
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all cursor-pointer"
-                title="Mở lịch sử trò chuyện"
+                title={language === 'vi' ? "Mở lịch sử trò chuyện" : "Open chat history"}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -565,12 +584,12 @@ const AiAnalysis = () => {
                   className="flex-1 bg-slate-100 hover:bg-black/5 dark:bg-slate-800/40 dark:hover:bg-slate-855 border border-border rounded-full py-2 px-4 text-xs font-bold text-text-primary transition shadow-sm flex items-center justify-center space-x-2 cursor-pointer mr-2"
                 >
                   <Edit2 className="w-3.5 h-3.5 text-primary" />
-                  <span>Trò chuyện mới</span>
+                  <span>{t('newChat')}</span>
                 </button>
                 <button
                   onClick={() => setSidebarOpen(false)}
                   className="w-8 h-8 flex items-center justify-center rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-text-secondary hover:text-text-primary transition-all cursor-pointer shrink-0"
-                  title="Ẩn lịch sử trò chuyện"
+                  title={language === 'vi' ? "Ẩn lịch sử trò chuyện" : "Hide chat history"}
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -580,7 +599,7 @@ const AiAnalysis = () => {
               <div className="relative mb-4 shrink-0">
                 <input
                   type="text"
-                  placeholder="Tìm kiếm trò chuyện..."
+                  placeholder={language === 'vi' ? "Tìm kiếm trò chuyện..." : "Search chats..."}
                   value={chatSearchQuery}
                   onChange={(e) => setChatSearchQuery(e.target.value)}
                   className="w-full bg-background border border-border rounded-full py-2 pl-8 pr-4 text-xs text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
@@ -598,7 +617,9 @@ const AiAnalysis = () => {
 
               {/* Recent chats list */}
               <div className="border-b border-border/50 pb-2 mb-3 shrink-0">
-                <span className="text-[10px] uppercase font-extrabold text-text-secondary tracking-wider">Trò chuyện gần đây</span>
+                <span className="text-[10px] uppercase font-extrabold text-text-secondary tracking-wider">
+                  {language === 'vi' ? 'Trò chuyện gần đây' : 'Recent Chats'}
+                </span>
               </div>
 
               <div className="overflow-y-auto space-y-1.5 pr-1 custom-scrollbar flex-1">
@@ -642,10 +663,10 @@ const AiAnalysis = () => {
                         </div>
                       ) : (
                         <div className="opacity-0 group-hover:opacity-100 flex items-center space-x-1 shrink-0 ml-1.5 transition-opacity">
-                          <button onClick={(e) => handleStartRename(e, chat)} className="text-text-secondary hover:text-primary p-0.5" title="Đổi tên">
+                          <button onClick={(e) => handleStartRename(e, chat)} className="text-text-secondary hover:text-primary p-0.5" title={language === 'vi' ? "Đổi tên" : "Rename"}>
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
-                          <button onClick={(e) => handleDeleteChat(e, chat.id)} className="text-text-secondary hover:text-red-500 p-0.5" title="Xóa">
+                          <button onClick={(e) => handleDeleteChat(e, chat.id)} className="text-text-secondary hover:text-red-500 p-0.5" title={language === 'vi' ? "Xóa" : "Delete"}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -656,7 +677,7 @@ const AiAnalysis = () => {
 
                 {filteredChats.length === 0 && (
                   <div className="text-center text-text-secondary text-xs italic py-8">
-                    Không tìm thấy cuộc trò chuyện nào.
+                    {language === 'vi' ? 'Không tìm thấy cuộc trò chuyện nào.' : 'No conversations found.'}
                   </div>
                 )}
               </div>
@@ -677,7 +698,7 @@ const AiAnalysis = () => {
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-lg text-text-secondary hover:text-text-primary transition-all cursor-pointer mr-2 shrink-0 border border-border"
-                  title="Mở lịch sử"
+                  title={language === 'vi' ? "Mở lịch sử" : "Open history"}
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -686,17 +707,17 @@ const AiAnalysis = () => {
               {contextDocId && activeDoc ? (
                 <div className="flex items-center space-x-2 text-primary font-bold text-xs bg-primary/5 border border-primary/20 px-3 py-1.5 rounded-full animate-fade-in">
                   <FolderSearch className="w-3.5 h-3.5" />
-                  <span className="truncate max-w-[200px] sm:max-w-[400px]">📚 Tài liệu: {activeDoc.title}</span>
+                  <span className="truncate max-w-[200px] sm:max-w-[400px]">📚 {language === 'vi' ? 'Tài liệu' : 'Document'}: {activeDoc.title}</span>
                 </div>
               ) : contextFolderId && activeFolder ? (
                 <div className="flex items-center space-x-2 text-[#117A65] font-bold text-xs bg-[#117A65]/5 border border-[#117A65]/20 px-3 py-1.5 rounded-full animate-fade-in">
                   <Folder className="w-3.5 h-3.5" />
-                  <span className="truncate max-w-[200px] sm:max-w-[400px]">📁 Thư mục: {activeFolder.name}</span>
+                  <span className="truncate max-w-[200px] sm:max-w-[400px]">📁 {language === 'vi' ? 'Thư mục' : 'Folder'}: {activeFolder.name}</span>
                 </div>
               ) : (
                 <div className="flex items-center space-x-2 text-text-secondary font-bold text-xs bg-slate-100 dark:bg-slate-800/60 border border-border px-3 py-1.5 rounded-full animate-fade-in">
                   <MessageSquare className="w-3.5 h-3.5 opacity-70" />
-                  <span>💬 Trò chuyện tự do (Không ngữ cảnh)</span>
+                  <span>💬 {language === 'vi' ? 'Trò chuyện tự do (Không tài liệu)' : 'Free Chat (No document)'}</span>
                 </div>
               )}
             </div>
@@ -706,12 +727,12 @@ const AiAnalysis = () => {
               {contextDocId ? (
                 <span className="text-emerald-500 font-bold text-[10px] items-center hidden sm:flex bg-emerald-500/5 px-2 py-1 rounded border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-ping"></span>
-                  Đã nạp tệp
+                  {language === 'vi' ? 'Đã nạp tệp' : 'File Loaded'}
                 </span>
               ) : contextFolderId ? (
                 <span className="text-[#117A65] font-bold text-[10px] items-center hidden sm:flex bg-[#117A65]/5 px-2 py-1 rounded border border-[#117A65]/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#117A65] mr-1 animate-ping"></span>
-                  Đã nạp thư mục
+                  {language === 'vi' ? 'Đã nạp thư mục' : 'Folder Loaded'}
                 </span>
               ) : null}
 
@@ -720,12 +741,12 @@ const AiAnalysis = () => {
                   onClick={() => {
                     setContextDocId(null);
                     setContextFolderId(null);
-                    toast.success('Đã gỡ bỏ ngữ cảnh, chuyển về trò chuyện tự do.');
+                    toast.success(language === 'vi' ? 'Đã gỡ bỏ tài liệu, chuyển về trò chuyện tự do.' : 'Removed document context, switched to free chat.');
                   }}
                   className="text-xs text-text-secondary hover:text-red-500 font-semibold px-2 py-1 rounded transition-colors cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/20"
-                  title="Gỡ ngữ cảnh"
+                  title={language === 'vi' ? "Gỡ tài liệu" : "Unlink document"}
                 >
-                  Gỡ ngữ cảnh
+                  {language === 'vi' ? 'Gỡ tài liệu' : 'Unlink document'}
                 </button>
               )}
             </div>
@@ -734,7 +755,8 @@ const AiAnalysis = () => {
           {/* Conditional Layout Rendering */}
           {isNewChat ? (
             /* CASE A: Centered welcome screen like Gemini */
-            <div className="flex-1 flex flex-col justify-center items-center max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto py-10 px-4 overflow-y-auto">
+            <div className="flex-1 flex flex-col max-w-4xl lg:max-w-5xl xl:max-w-6xl w-full mx-auto py-10 px-4 overflow-y-auto custom-scrollbar">
+              <div className="w-full my-auto flex flex-col items-center">
               {/* Greeting with animated gradient colors */}
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-center mb-8 leading-tight animate-fade-in">
                 <span className="bg-gradient-to-r from-primary via-[#52B788] to-[#117A65] bg-clip-text text-transparent">
@@ -943,6 +965,52 @@ const AiAnalysis = () => {
                   </div>
                 </div>
               </div>
+
+              {/* NotebookLM-style Quick Add / Drop Zone */}
+              {!contextDocId && !contextFolderId && (
+                <div 
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) setFile(f); }}
+                  className="w-full mt-8 border-2 border-dashed border-slate-200 dark:border-slate-800 bg-[#F9FBFD] dark:bg-slate-900/10 rounded-[32px] py-12 px-6 flex flex-col items-center justify-center text-center transition-all hover:border-primary/40 hover:bg-slate-50/50 dark:hover:bg-slate-900/20 animate-fade-in group"
+                >
+                  <p className="text-xl font-normal text-slate-700 dark:text-slate-200 mb-1.5 flex items-center justify-center space-x-2">
+                    <span>{language === 'vi' ? 'hoặc thả tài liệu của bạn vào đây' : 'or drag and drop your document here'}</span>
+                  </p>
+                  <p className="text-xs text-text-secondary/60 mb-8">
+                    {language === 'vi' 
+                      ? 'pdf, docx, xlsx, pptx, ảnh, video, và nhiều hơn nữa' 
+                      : 'pdf, docx, xlsx, pptx, images, videos, and more'
+                    }
+                  </p>
+ 
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center space-x-2 px-5 py-2.5 bg-surface border border-border rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all text-xs font-semibold text-text-primary shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4 text-primary" />
+                      <span>{t('uploadDoc')}</span>
+                    </button>
+ 
+                    <button
+                      onClick={() => setIsSelectModalOpen(true)}
+                      className="flex items-center space-x-2 px-5 py-2.5 bg-surface border border-border rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all text-xs font-semibold text-text-primary shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer"
+                    >
+                      <FolderSearch className="w-4 h-4 text-[#117A65]" />
+                      <span>{language === 'vi' ? 'Tài liệu đã có' : 'Existing documents'}</span>
+                    </button>
+ 
+                    <button
+                      onClick={() => setIsFolderSelectModalOpen(true)}
+                      className="flex items-center space-x-2 px-5 py-2.5 bg-surface border border-border rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all text-xs font-semibold text-text-primary shadow-sm hover:scale-[1.02] active:scale-95 cursor-pointer"
+                    >
+                      <Folder className="w-4 h-4 text-amber-500" />
+                      <span>{language === 'vi' ? 'Thư mục đã có' : 'Existing folders'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+              </div>
             </div>
           ) : (
             /* CASE B: Chat message streaming history & input pinned at the bottom */
@@ -959,7 +1027,7 @@ const AiAnalysis = () => {
                     <div className={`p-4 text-sm rounded-2xl ${
                       chat.role === 'user'
                         ? 'bg-primary text-white rounded-br-sm max-w-[85%]'
-                        : 'bg-background dark:bg-surface/80 text-text-primary rounded-tl-sm border border-border shadow-sm w-full'
+                        : `bg-background dark:bg-surface/80 text-text-primary rounded-tl-sm border border-border shadow-sm ${!chat.text ? 'w-fit py-3 px-4' : 'w-full'}`
                     }`}>
                       {chat.type === 'file' ? (
                         <div className="flex items-center space-x-3 bg-white/20 p-2 rounded-lg">
@@ -973,19 +1041,18 @@ const AiAnalysis = () => {
                         </div>
                       ) : chat.role === 'user' ? (
                         <p className="whitespace-pre-wrap leading-relaxed">{chat.text}</p>
+                      ) : !chat.text ? (
+                        <div className="flex space-x-1.5 py-1 px-1.5 items-center">
+                          <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '-300ms' }}></span>
+                          <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '-150ms' }}></span>
+                          <span className="w-2 h-2 rounded-full bg-primary animate-bounce"></span>
+                        </div>
                       ) : (
                         <MarkdownRenderer content={chat.text || ''} />
                       )}
                     </div>
                   </div>
                 ))}
-                {chatLoading && (
-                  <div className="flex items-start animate-pulse">
-                    <div className="bg-background dark:bg-surface/80 rounded-2xl rounded-tl-sm p-4 text-sm text-text-primary border border-border shadow-sm">
-                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Bottom Pinned Input Area */}
@@ -1037,12 +1104,12 @@ const AiAnalysis = () => {
                             onChange={(e) => setSubject(e.target.value)}
                             className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-primary cursor-pointer h-8.5"
                           >
-                            <option value="Auto">✨ AI Tự động nhận diện danh mục</option>
-                            <option value="Nhân sự">Nhân sự</option>
-                            <option value="Hành chính">Hành chính</option>
-                            <option value="Pháp luật">Pháp luật</option>
-                            <option value="Học tập">Học tập</option>
-                            <option value="Khác">Khác (Tự điền...)</option>
+                            <option value="Auto">{language === 'vi' ? '✨ AI Tự động nhận diện danh mục' : '✨ AI Auto Category'}</option>
+                            <option value="Nhân sự">{language === 'vi' ? 'Nhân sự' : 'HR'}</option>
+                            <option value="Hành chính">{language === 'vi' ? 'Hành chính' : 'Admin'}</option>
+                            <option value="Pháp luật">{language === 'vi' ? 'Pháp luật' : 'Legal'}</option>
+                            <option value="Học tập">{language === 'vi' ? 'Học tập' : 'Study'}</option>
+                            <option value="Khác">{language === 'vi' ? 'Khác (Tự điền...)' : 'Other (Type...)'}</option>
                           </select>
                         </div>
 
@@ -1052,7 +1119,7 @@ const AiAnalysis = () => {
                               type="text"
                               value={customSubject}
                               onChange={(e) => setCustomSubject(e.target.value)}
-                              placeholder="Tên danh mục riêng..."
+                              placeholder={language === 'vi' ? "Tên danh mục riêng..." : "Custom category name..."}
                               className="w-full bg-surface dark:bg-slate-900 border border-border rounded-lg px-2.5 py-1.5 text-xs text-text-primary focus:outline-none focus:border-primary h-8.5"
                             />
                           </div>
@@ -1064,7 +1131,7 @@ const AiAnalysis = () => {
                           className="bg-primary hover:bg-primary-dark text-white text-xs px-4 py-1.5 rounded-lg font-bold flex items-center justify-center transition-colors shrink-0 h-8.5 cursor-pointer shadow-sm disabled:opacity-50"
                         >
                           {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
-                          <span>Nạp tài liệu</span>
+                          <span>{language === 'vi' ? 'Nạp tài liệu' : 'Ingest Document'}</span>
                         </button>
                       </div>
                     </div>
@@ -1079,7 +1146,7 @@ const AiAnalysis = () => {
                       type="button"
                       onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
                       className="p-2 text-text-primary hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors cursor-pointer flex items-center justify-center shrink-0"
-                      title="Tùy chọn nạp tài liệu"
+                      title={language === 'vi' ? "Tùy chọn nạp tài liệu" : "Document upload options"}
                     >
                       <Plus className={`w-5 h-5 transition-transform duration-200 ${showAttachmentMenu ? 'rotate-45 text-primary' : ''}`} />
                     </button>
@@ -1096,7 +1163,7 @@ const AiAnalysis = () => {
                           className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
                         >
                           <FolderSearch className="w-4 h-4 text-primary" />
-                          <span className="flex-1">📚 Chọn tài liệu đã có</span>
+                          <span className="flex-1">{language === 'vi' ? '📚 Chọn tài liệu đã có' : '📚 Select existing document'}</span>
                           <span className="text-[9px] text-text-secondary bg-background px-1.5 py-0.5 rounded border border-border">{existingDocs.length}</span>
                         </button>
                         <button
@@ -1105,7 +1172,7 @@ const AiAnalysis = () => {
                           className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
                         >
                           <Folder className="w-4 h-4 text-[#117A65]" />
-                          <span className="flex-1">📁 Chọn thư mục đã có</span>
+                          <span className="flex-1">{language === 'vi' ? '📁 Chọn thư mục đã có' : '📁 Select existing folder'}</span>
                           <span className="text-[9px] text-text-secondary bg-background px-1.5 py-0.5 rounded border border-border">{existingFolders.length}</span>
                         </button>
                         <div className="border-t border-border my-1"></div>
@@ -1115,20 +1182,25 @@ const AiAnalysis = () => {
                           className="w-full text-left px-4 py-2.5 hover:bg-black/5 dark:hover:bg-white/5 text-xs text-text-primary font-semibold flex items-center space-x-2.5 transition-colors cursor-pointer"
                         >
                           <Upload className="w-4 h-4 text-[#52B788]" />
-                          <span>📤 Tải lên tài liệu mới</span>
+                          <span>{language === 'vi' ? '📤 Tải lên tài liệu mới' : '📤 Upload new document'}</span>
                         </button>
                       </div>
                     )}
                   </div>
 
                   {/* Main Input Text Field */}
-                  <input
-                    type="text"
+                  <textarea
                     placeholder="Ask Gemini..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
-                    className="flex-1 bg-transparent border-0 outline-none focus:ring-0 focus:outline-none text-sm text-text-primary placeholder:text-text-secondary/50 py-2.5 pl-2"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendChat();
+                      }
+                    }}
+                    rows={1}
+                    className="flex-1 bg-transparent border-0 outline-none focus:ring-0 focus:outline-none text-sm text-text-primary placeholder:text-text-secondary/50 py-2.5 pl-2 resize-none custom-scrollbar max-h-32"
                   />
 
                   {/* Right Options (Model Selector & Mic/Send Button) */}

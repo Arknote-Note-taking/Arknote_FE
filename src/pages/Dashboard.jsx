@@ -6,6 +6,7 @@ import DocumentCard from '../components/DocumentCard';
 import UploadModal from '../components/UploadModal';
 import DocumentDetail from '../components/DocumentDetail';
 import { useConfirm } from '../context/ConfirmContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const Dashboard = () => {
   const [documents, setDocuments] = useState([]);
@@ -14,6 +15,7 @@ const Dashboard = () => {
   const [selectedDoc, setSelectedDoc] = useState(null);
   const { socket } = useContext(SocketContext);
   const { confirm } = useConfirm();
+  const { language } = useLanguage();
 
   const fetchDocuments = async () => {
     try {
@@ -39,7 +41,11 @@ const Dashboard = () => {
   };
 
   const handleDelete = async (id) => {
-    const isConfirmed = await confirm('Bạn có chắc muốn xóa tài liệu này?');
+    const isConfirmed = await confirm(
+      language === 'vi' 
+        ? 'Bạn có chắc muốn xóa tài liệu này?' 
+        : 'Are you sure you want to delete this document?'
+    );
     if (!isConfirmed) return;
     try {
       await API.delete(`/documents/${id}`);

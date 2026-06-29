@@ -171,16 +171,41 @@ export const SocketProvider = ({ children }) => {
 
           if (data.type === 'user_delete_request') {
             toastContent = (
-              <div className="flex flex-col text-xs">
+              <div 
+                onClick={() => {
+                  toast.dismiss();
+                  const event = new CustomEvent('app-navigate', { 
+                    detail: { path: '/users' } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+                className="flex flex-col text-xs cursor-pointer hover:opacity-85"
+              >
                 <span className="font-bold text-red-500">⚠️ Yêu cầu xóa tài khoản</span>
                 <span>{data.message}</span>
               </div>
             );
           } else if (data.type === 'document_restore_request') {
+            let targetDocId = data.doc_id || data.docId;
+            if (data.message && data.message.includes('|||doc_id:')) {
+              targetDocId = data.message.split('|||doc_id:')[1];
+            }
             toastContent = (
-              <div className="flex flex-col text-xs">
+              <div 
+                onClick={() => {
+                  toast.dismiss();
+                  const event = new CustomEvent('app-navigate', { 
+                    detail: { 
+                      path: '/documents', 
+                      state: { viewMode: 'deleted', highlightDocId: targetDocId } 
+                    } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+                className="flex flex-col text-xs cursor-pointer hover:opacity-85"
+              >
                 <span className="font-bold text-primary">📄 Yêu cầu khôi phục tài liệu</span>
-                <span>{data.message}</span>
+                <span>{data.message && data.message.includes('|||') ? data.message.split('|||')[0] : data.message}</span>
               </div>
             );
           }
@@ -202,19 +227,81 @@ export const SocketProvider = ({ children }) => {
           addNotification(data);
           if (data.type === 'document_restored' || data.type === 'user_restored') {
             let cleanMsg = data.message;
+            let targetDocId = data.doc_id || data.docId;
+            let targetUserId = data.user_id || data.userId;
             if (cleanMsg && cleanMsg.includes('|||doc_id:')) {
+              targetDocId = cleanMsg.split('|||doc_id:')[1];
               cleanMsg = cleanMsg.split('|||doc_id:')[0];
             }
             if (cleanMsg && cleanMsg.includes('|||user_id:')) {
+              targetUserId = cleanMsg.split('|||user_id:')[1];
               cleanMsg = cleanMsg.split('|||user_id:')[0];
             }
-            toast.success(cleanMsg, { duration: 6000, icon: '🎉' });
+
+            toast.success(
+              <div 
+                onClick={() => {
+                  toast.dismiss();
+                  if (data.type === 'document_restored' && targetDocId) {
+                    const event = new CustomEvent('app-navigate', { 
+                      detail: { path: `/documents/${targetDocId}` } 
+                    });
+                    window.dispatchEvent(event);
+                  } else if (data.type === 'user_restored') {
+                    const event = new CustomEvent('app-navigate', { 
+                      detail: { path: `/profile` } 
+                    });
+                    window.dispatchEvent(event);
+                  }
+                }}
+                className="cursor-pointer text-xs"
+              >
+                {cleanMsg}
+              </div>, 
+              { duration: 6000, icon: '🎉' }
+            );
           } else if (data.type === 'folder_shared') {
-            toast.success(data.message, { duration: 6000, icon: '📁' });
+            toast.success(
+              <div 
+                onClick={() => {
+                  toast.dismiss();
+                  const event = new CustomEvent('app-navigate', { 
+                    detail: { path: '/documents', state: { viewMode: 'folders' } } 
+                  });
+                  window.dispatchEvent(event);
+                }}
+                className="cursor-pointer text-xs"
+              >
+                {data.message}
+              </div>, 
+              { duration: 6000, icon: '📁' }
+            );
           } else if (data.type === 'folder_unshared') {
             toast.error(data.message, { duration: 6000, icon: '🚫' });
           } else if (data.type === 'document_comment') {
-            toast(data.message, { duration: 5000, icon: '💬' });
+            let cleanMsg = data.message;
+            let targetDocId = data.doc_id || data.docId;
+            if (cleanMsg && cleanMsg.includes('|||doc_id:')) {
+              targetDocId = cleanMsg.split('|||doc_id:')[1];
+              cleanMsg = cleanMsg.split('|||doc_id:')[0];
+            }
+            toast(
+              <div 
+                onClick={() => {
+                  toast.dismiss();
+                  if (targetDocId) {
+                    const event = new CustomEvent('app-navigate', { 
+                      detail: { path: `/documents/${targetDocId}` } 
+                    });
+                    window.dispatchEvent(event);
+                  }
+                }}
+                className="cursor-pointer text-xs"
+              >
+                {cleanMsg}
+              </div>, 
+              { duration: 5000, icon: '💬' }
+            );
           } else {
             toast(data.message, { duration: 5000 });
           }

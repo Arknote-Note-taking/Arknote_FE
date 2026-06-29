@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Search, FileText, ChevronLeft, ChevronRight, UploadCloud, Loader2 } from 'lucide-react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../context/LanguageContext';
 
 const DocumentSelectModal = ({ 
   isOpen, 
@@ -12,6 +13,7 @@ const DocumentSelectModal = ({
   folderId = null,
   onUploadSuccess = null
 }) => {
+  const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('library');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,6 +27,17 @@ const DocumentSelectModal = ({
   const [customSubject, setCustomSubject] = useState('');
   const [existingDocs, setExistingDocs] = useState([]);
   
+  const getSubjectLabel = (subj) => {
+    const s = subj || 'Khác';
+    const trimmed = s.trim();
+    if (trimmed === 'Nhân sự') return language === 'vi' ? 'Nhân sự' : 'Human Resources';
+    if (trimmed === 'Hành chính') return language === 'vi' ? 'Hành chính' : 'Administration';
+    if (trimmed === 'Pháp luật') return language === 'vi' ? 'Pháp luật' : 'Law';
+    if (trimmed === 'Học tập') return language === 'vi' ? 'Học tập' : 'Study';
+    if (trimmed === 'Khác' || trimmed.toLowerCase() === 'unknown' || trimmed.toLowerCase() === 'general' || trimmed.toLowerCase() === 'auto') return language === 'vi' ? 'Khác' : 'Other';
+    return s;
+  };
+
   const fileInputRef = useRef(null);
   const ITEMS_PER_PAGE = 4;
 
@@ -114,10 +127,18 @@ const DocumentSelectModal = ({
     });
 
     if (invalidFiles.length > 0) {
-      toast.error(`Định dạng tệp không được hỗ trợ: \n${invalidFiles.join(', \n')}`);
+      toast.error(
+        language === 'vi' 
+          ? `Định dạng tệp không được hỗ trợ: \n${invalidFiles.join(', \n')}`
+          : `Unsupported file format: \n${invalidFiles.join(', \n')}`
+      );
     }
     if (duplicates.length > 0) {
-      toast.error(`Tài liệu đã tồn tại trong thư viện: \n${duplicates.join(', \n')}`);
+      toast.error(
+        language === 'vi' 
+          ? `Tài liệu đã tồn tại trong thư viện: \n${duplicates.join(', \n')}`
+          : `Document already exists in library: \n${duplicates.join(', \n')}`
+      );
     }
 
     if (validFiles.length === 0) return;
@@ -163,7 +184,11 @@ const DocumentSelectModal = ({
         })
       );
       
-      toast.success(`Đã tải lên & nạp thành công ${files.length} tài liệu vào thư mục!`);
+      toast.success(
+        language === 'vi' 
+          ? `Đã tải lên & nạp thành công ${files.length} tài liệu vào thư mục!` 
+          : `Successfully uploaded & ingested ${files.length} documents into the folder!`
+      );
       setFiles([]);
       
       if (onUploadSuccess) {
@@ -171,8 +196,8 @@ const DocumentSelectModal = ({
       }
       onClose();
     } catch (err) {
-      setUploadError(err.response?.data?.error || 'Tải tài liệu thất bại');
-      toast.error('Lỗi khi tải tài liệu lên!');
+      setUploadError(err.response?.data?.error || (language === 'vi' ? 'Tải tài liệu thất bại' : 'Document upload failed'));
+      toast.error(language === 'vi' ? 'Lỗi khi tải tài liệu lên!' : 'Error uploading documents!');
     } finally {
       setUploading(false);
     }
@@ -185,9 +210,13 @@ const DocumentSelectModal = ({
           <X className="w-5 h-5"/>
         </button>
         
-        <h2 className="text-2xl font-bold text-text-primary mb-2">Thêm tài liệu vào thư mục</h2>
+        <h2 className="text-2xl font-bold text-text-primary mb-2">
+          {language === 'vi' ? 'Thêm tài liệu vào thư mục' : 'Add Document to Folder'}
+        </h2>
         <p className="text-text-secondary text-sm mb-6">
-          Chọn tài liệu đã có sẵn trong kho lưu trữ hoặc tải lên trực tiếp các tệp tin mới từ máy tính của bạn.
+          {language === 'vi' 
+            ? 'Chọn tài liệu đã có sẵn trong kho lưu trữ hoặc tải lên trực tiếp các tệp tin mới từ máy tính của bạn.' 
+            : 'Select documents already in your library or upload new files directly from your computer.'}
         </p>
 
         {/* Tab Selector - Only display if folderId is passed */}
@@ -203,7 +232,7 @@ const DocumentSelectModal = ({
                 activeTab === 'library' ? 'border-primary text-primary font-bold' : 'border-transparent text-text-secondary hover:text-text-primary'
               }`}
             >
-              📂 Chọn từ kho tài liệu
+              📂 {language === 'vi' ? 'Chọn từ kho tài liệu' : 'Select from Library'}
             </button>
             <button 
               type="button"
@@ -212,7 +241,7 @@ const DocumentSelectModal = ({
                 activeTab === 'upload' ? 'border-primary text-primary font-bold' : 'border-transparent text-text-secondary hover:text-text-primary'
               }`}
             >
-              💻 Tải lên từ máy tính
+              💻 {language === 'vi' ? 'Tải lên từ máy tính' : 'Upload from Computer'}
             </button>
           </div>
         )}
@@ -225,7 +254,7 @@ const DocumentSelectModal = ({
                 type="text" 
                 value={searchQuery}
                 onChange={handleSearchChange}
-                placeholder="Tìm kiếm theo tên tài liệu hoặc danh mục..."
+                placeholder={language === 'vi' ? "Tìm kiếm theo tên tài liệu hoặc danh mục..." : "Search by document name or category..."}
                 className="w-full bg-background border border-border rounded-xl pl-11 pr-4 py-3 text-sm text-text-primary focus:outline-none focus:border-primary transition-colors"
               />
             </div>
@@ -271,21 +300,23 @@ const DocumentSelectModal = ({
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
                         className="font-bold text-text-primary text-sm hover:text-primary transition-colors hover:underline block truncate mb-1"
-                        title="Xem chi tiết tài liệu trong tab mới"
+                        title={language === 'vi' ? "Xem chi tiết tài liệu trong tab mới" : "View document details in a new tab"}
                       >
                         {doc.title}
                       </a>
                       <div className="flex items-center space-x-2">
-                        <span className="text-xs bg-black/5 dark:bg-white/5 text-text-secondary px-2 py-0.5 rounded-md font-medium">{doc.subject || 'General'}</span>
-                        <span className="text-xs text-text-secondary">{new Date(doc.created_at).toLocaleDateString('vi-VN')}</span>
+                        <span className="text-xs bg-black/5 dark:bg-white/5 text-text-secondary px-2 py-0.5 rounded-md font-medium">
+                          {getSubjectLabel(doc.subject)}
+                        </span>
+                        <span className="text-xs text-text-secondary">{new Date(doc.created_at).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                       </div>
-                      <p className="text-xs text-text-secondary mt-2 line-clamp-1">{doc.summary || 'Chưa có bản tóm tắt...'}</p>
+                      <p className="text-xs text-text-secondary mt-2 line-clamp-1">{doc.summary || (language === 'vi' ? 'Chưa có bản tóm tắt...' : 'No summary available...')}</p>
                     </div>
                   </div>
                 );
               }) : (
                 <div className="text-center text-text-secondary text-sm py-10">
-                  Không tìm thấy tài liệu phù hợp.
+                  {language === 'vi' ? 'Không tìm thấy tài liệu phù hợp.' : 'No matching documents found.'}
                 </div>
               )}
             </div>
@@ -293,7 +324,9 @@ const DocumentSelectModal = ({
             {/* Footer actions & Pagination */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between border-t border-border pt-4 gap-4 shrink-0">
               <span className="text-sm text-text-secondary">
-                Hiển thị {filteredDocs.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredDocs.length)} trong tổng {filteredDocs.length}
+                {language === 'vi'
+                  ? `Hiển thị ${filteredDocs.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - ${Math.min(currentPage * ITEMS_PER_PAGE, filteredDocs.length)} trong tổng ${filteredDocs.length}`
+                  : `Showing ${filteredDocs.length > 0 ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} - ${Math.min(currentPage * ITEMS_PER_PAGE, filteredDocs.length)} of ${filteredDocs.length}`}
               </span>
               <div className="flex items-center space-x-2 self-center">
                 <button 
@@ -323,7 +356,7 @@ const DocumentSelectModal = ({
                   disabled={selectedIds.length === 0}
                   className="bg-primary hover:bg-primary-dark text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                 >
-                  Xác nhận thêm ({selectedIds.length} tài liệu)
+                  {language === 'vi' ? `Xác nhận thêm (${selectedIds.length} tài liệu)` : `Confirm Add (${selectedIds.length} documents)`}
                 </button>
               </div>
             )}
@@ -332,30 +365,32 @@ const DocumentSelectModal = ({
           <div className="flex-1 flex flex-col overflow-y-auto pr-1 custom-scrollbar">
             {/* Subject Select */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-text-secondary mb-1">Danh mục</label>
+              <label className="block text-sm font-medium text-text-secondary mb-1">{language === 'vi' ? 'Danh mục' : 'Category'}</label>
               <select 
                 value={subject} 
                 onChange={(e) => setSubject(e.target.value)}
                 className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-primary transition-colors cursor-pointer"
               >
-                <option value="Auto">✨ AI Tự động nhận diện</option>
-                <option value="Nhân sự">Nhân sự</option>
-                <option value="Hành chính">Hành chính</option>
-                <option value="Pháp luật">Pháp luật</option>
-                <option value="Học tập">Học tập</option>
-                <option value="Khác">Khác (Tự điền...)</option>
+                <option value="Auto">{language === 'vi' ? '✨ AI Tự động nhận diện' : '✨ AI Auto-detect'}</option>
+                <option value="Nhân sự">{language === 'vi' ? 'Nhân sự' : 'HR'}</option>
+                <option value="Hành chính">{language === 'vi' ? 'Hành chính' : 'Admin'}</option>
+                <option value="Pháp luật">{language === 'vi' ? 'Pháp luật' : 'Legal'}</option>
+                <option value="Học tập">{language === 'vi' ? 'Học tập' : 'Study'}</option>
+                <option value="Khác">{language === 'vi' ? 'Khác (Tự điền...)' : 'Other (Type...)'}</option>
               </select>
             </div>
 
             {/* Custom Subject */}
             {subject === 'Khác' && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold text-text-secondary mb-1">Tên danh mục riêng của bạn (Chỉ bạn thấy)</label>
+                <label className="block text-xs font-semibold text-text-secondary mb-1">
+                  {language === 'vi' ? 'Tên danh mục riêng của bạn (Chỉ bạn thấy)' : 'Your custom category name (Only visible to you)'}
+                </label>
                 <input 
                   type="text" 
                   value={customSubject}
                   onChange={(e) => setCustomSubject(e.target.value)}
-                  placeholder="VD: Tài chính, Dự án A, Công nghệ..."
+                  placeholder={language === 'vi' ? "VD: Tài chính, Dự án A, Công nghệ..." : "e.g. Finance, Project A, Technology..."}
                   className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm text-text-primary focus:outline-none focus:border-primary"
                 />
               </div>
@@ -369,8 +404,14 @@ const DocumentSelectModal = ({
               <div className="bg-primary/10 p-3 rounded-full text-primary group-hover:scale-110 transition-transform mb-3">
                 <UploadCloud className="w-6 h-6" />
               </div>
-              <p className="text-text-primary text-sm font-medium">Nhấp để chọn hoặc kéo thả các file vào đây</p>
-              <p className="text-text-secondary text-[10px] mt-1 text-center">Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .docx, .doc, .xlsx, .xls, .pptx, .ppt, .csv, .mp4, .mov, .avi, .mkv, .txt, .png, .jpg)</p>
+              <p className="text-text-primary text-sm font-medium">
+                {language === 'vi' ? 'Nhấp để chọn hoặc kéo thả các file vào đây' : 'Click to select or drag & drop files here'}
+              </p>
+              <p className="text-text-secondary text-[10px] mt-1 text-center">
+                {language === 'vi' 
+                  ? 'Hỗ trợ tải lên nhiều file cùng lúc (.pdf, .docx, .doc, .xlsx, .xls, .pptx, .ppt, .csv, .mp4, .mov, .avi, .mkv, .txt, .png, .jpg)' 
+                  : 'Supports uploading multiple files at once (.pdf, .docx, .doc, .xlsx, .xls, .pptx, .ppt, .csv, .mp4, .mov, .avi, .mkv, .txt, .png, .jpg)'}
+              </p>
               
               <input 
                 type="file" 
@@ -386,13 +427,15 @@ const DocumentSelectModal = ({
             {files.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-text-secondary">Các tệp đã chọn ({files.length}):</span>
+                  <span className="text-xs font-semibold text-text-secondary">
+                    {language === 'vi' ? `Các tệp đã chọn (${files.length}):` : `Selected files (${files.length}):`}
+                  </span>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="text-xs text-primary font-extrabold hover:underline flex items-center space-x-1 cursor-pointer"
                   >
-                    <span>+ Chọn thêm tệp</span>
+                    <span>{language === 'vi' ? '+ Chọn thêm tệp' : '+ Select more files'}</span>
                   </button>
                 </div>
                 
@@ -406,7 +449,7 @@ const DocumentSelectModal = ({
                           type="button"
                           onClick={() => setFiles(prev => prev.filter((_, i) => i !== idx))}
                           className="text-text-secondary hover:text-red-500 transition-colors p-0.5 cursor-pointer"
-                          title="Bỏ tệp này"
+                          title={language === 'vi' ? "Bỏ tệp này" : "Remove this file"}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -431,10 +474,16 @@ const DocumentSelectModal = ({
               {uploading ? (
                 <span className="flex items-center space-x-2">
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Đang tải lên & Phân tích bằng AI ({files.length} tệp)...</span>
+                  <span>
+                    {language === 'vi' 
+                      ? `Đang tải lên & Phân tích bằng AI (${files.length} tệp)...` 
+                      : `Uploading & Analyzing with AI (${files.length} files)...`}
+                  </span>
                 </span>
               ) : (
-                `Tải lên & Thêm vào thư mục (${files.length} tệp)`
+                language === 'vi' 
+                  ? `Tải lên & Thêm vào thư mục (${files.length} tệp)` 
+                  : `Upload & Add to folder (${files.length} files)`
               )}
             </button>
           </div>

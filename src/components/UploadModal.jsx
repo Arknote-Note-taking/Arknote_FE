@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import API from '../services/api';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLanguage } from '../context/LanguageContext';
 
 const UploadModal = ({ isOpen, onClose }) => {
+  const { language } = useLanguage();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -182,13 +184,17 @@ const UploadModal = ({ isOpen, onClose }) => {
         {/* Folders Selection */}
         <div className="mb-4 border-t border-border pt-4">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-text-secondary">Thêm vào Thư mục</label>
+            <label className="text-sm font-medium text-text-secondary">
+              {language === 'vi' ? 'Thêm vào Thư mục' : 'Add to Folder'}
+            </label>
             <button
               type="button"
               onClick={() => setCreateNewFolder(!createNewFolder)}
               className="text-xs text-primary font-bold hover:underline cursor-pointer"
             >
-              {createNewFolder ? "Chọn thư mục sẵn có" : "✨ Tạo thư mục mới"}
+              {createNewFolder 
+                ? (language === 'vi' ? "Chọn thư mục sẵn có" : "Select existing folder") 
+                : (language === 'vi' ? "✨ Tạo thư mục mới" : "✨ Create new folder")}
             </button>
           </div>
 
@@ -198,7 +204,7 @@ const UploadModal = ({ isOpen, onClose }) => {
                 type="text"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Nhập tên thư mục mới..."
+                placeholder={language === 'vi' ? "Nhập tên thư mục mới..." : "Enter new folder name..."}
                 className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-primary"
               />
             </div>
@@ -208,7 +214,9 @@ const UploadModal = ({ isOpen, onClose }) => {
               onChange={(e) => setSelectedFolderId(e.target.value)}
               className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-text-primary focus:outline-none focus:border-primary cursor-pointer"
             >
-              <option value="">-- Không phân vào thư mục --</option>
+              <option value="">
+                {language === 'vi' ? '-- Không phân vào thư mục --' : '-- Do not assign to folder --'}
+              </option>
               {folders.map(f => (
                 <option key={f.id} value={f.id}>{f.name}</option>
               ))}

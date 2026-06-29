@@ -17,7 +17,21 @@ const translations = {
     pro: "PRO",
     free: "FREE",
     systemOverview: "Tổng quan hệ thống",
-    
+    aiAnalysis: "AI phân tích",
+    users: "Khách hàng",
+    overviewDesc: "Thống kê hoạt động lưu trữ và ôn tập của bạn",
+    newChat: "Trò chuyện mới",
+    searchChats: "Tìm kiếm trò chuyện...",
+    freeChat: "Trò chuyện tự do (Không tài liệu)",
+    uploadNewDoc: "Tải lên tài liệu mới",
+    existingDocs: "Tài liệu đã có",
+    existingFolders: "Thư mục đã có",
+    edit: "Chỉnh sửa",
+    displayName: "Tên hiển thị",
+    emailAddress: "Địa chỉ Email",
+    plan: "Gói tài khoản",
+    all: "Tất cả",
+
     // Overview / Dashboard
     totalDocs: "Tài liệu lưu trữ",
     flashcardDecks: "Bộ thẻ Flashcard",
@@ -32,7 +46,7 @@ const translations = {
     noDecks: "Chưa có bộ thẻ nào.",
     custom: "Tự tạo",
     aiGen: "AI Tạo",
-    
+
     // Quizzes & History
     quizHistory: "Lịch sử làm bài",
     quizzesCreatedTab: "Quizzes đã tạo",
@@ -52,7 +66,7 @@ const translations = {
     noQuizzesCreatedDesc: "Hãy mở một tài liệu bất kỳ và bấm nút \"Tạo Quiz AI\" để hệ thống tự động soạn bài tập!",
     noAttemptsHistory: "Chưa có lịch sử làm bài nào.",
     noAttemptsHistoryDesc: "Hãy mở một tài liệu và bấm nút \"Tạo Quiz AI\" để bắt đầu ôn luyện!",
-    
+
     // Profile
     myProfile: "Hồ sơ của tôi",
     changePassword: "Thay đổi mật khẩu",
@@ -71,7 +85,7 @@ const translations = {
     newPassword: "Mật khẩu mới",
     confirmNewPassword: "Xác nhận mật khẩu mới",
     updatePassword: "Cập nhật mật khẩu",
-    
+
     // Flashcards
     searchDecks: "Tìm kiếm bộ thẻ...",
     createDeck: "Tạo bộ thẻ",
@@ -82,7 +96,7 @@ const translations = {
     backSide: "Mặt Sau (Đáp Án)",
     correct: "Đúng",
     incorrect: "Sai",
-    
+
     // Documents
     allDocs: "Tất cả tài liệu",
     searchDocs: "Tìm kiếm tài liệu...",
@@ -105,7 +119,21 @@ const translations = {
     pro: "PRO",
     free: "FREE",
     systemOverview: "System Overview",
-    
+    aiAnalysis: "AI Analysis",
+    users: "Customers",
+    overviewDesc: "Activity statistics for your storage and study",
+    newChat: "New Chat",
+    searchChats: "Search chats...",
+    freeChat: "Free Chat (No document)",
+    uploadNewDoc: "Upload new document",
+    existingDocs: "Existing documents",
+    existingFolders: "Existing folders",
+    edit: "Edit",
+    displayName: "Display Name",
+    emailAddress: "Email Address",
+    plan: "Account Plan",
+    all: "All",
+
     // Overview / Dashboard
     totalDocs: "Stored Documents",
     flashcardDecks: "Flashcard Decks",
@@ -120,7 +148,7 @@ const translations = {
     noDecks: "No decks found.",
     custom: "Custom",
     aiGen: "AI Gen",
-    
+
     // Quizzes & History
     quizHistory: "Attempt History",
     quizzesCreatedTab: "Created Quizzes",
@@ -140,7 +168,7 @@ const translations = {
     noQuizzesCreatedDesc: "Open any document and click \"AI Quiz Gen\" to automatically generate a quiz!",
     noAttemptsHistory: "No quiz attempts found.",
     noAttemptsHistoryDesc: "Open a document and click \"AI Quiz Gen\" to start learning!",
-    
+
     // Profile
     myProfile: "My Profile",
     changePassword: "Change Password",
@@ -159,7 +187,7 @@ const translations = {
     newPassword: "New Password",
     confirmNewPassword: "Confirm New Password",
     updatePassword: "Update Password",
-    
+
     // Flashcards
     searchDecks: "Search decks...",
     createDeck: "Create Deck",
@@ -170,7 +198,7 @@ const translations = {
     backSide: "Back Side (Answer)",
     correct: "Correct",
     incorrect: "Incorrect",
-    
+
     // Documents
     allDocs: "All Documents",
     searchDocs: "Search documents...",

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import API from '../services/api';
 import { Network, Loader2 } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
@@ -69,6 +70,7 @@ if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D
 }
 
 const GraphView = () => {
+  const { language } = useLanguage();
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState(null);
@@ -290,7 +292,9 @@ const GraphView = () => {
                   </p>
 
                   <div>
-                    <p className="text-[10px] font-semibold text-text-secondary mb-2 whitespace-nowrap">Liên kết đến:</p>
+                    <p className="text-[10px] font-semibold text-text-secondary mb-2 whitespace-nowrap">
+                      {language === 'vi' ? 'Liên kết đến:' : 'Linked to:'}
+                    </p>
                     <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                       {nodeDetails.linkedDocs?.map(ld => (
                         <div
@@ -302,7 +306,9 @@ const GraphView = () => {
                         </div>
                       ))}
                       {(!nodeDetails.linkedDocs || nodeDetails.linkedDocs.length === 0) && (
-                        <p className="text-[11px] text-text-secondary italic">Không có liên kết đồng cấp.</p>
+                        <p className="text-[11px] text-text-secondary italic">
+                          {language === 'vi' ? 'Không có liên kết đồng cấp.' : 'No peer links.'}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -311,22 +317,34 @@ const GraphView = () => {
             </div>
           ) : (
             <div className="bg-surface border border-border rounded-xl p-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex items-center justify-center">
-              <p className="text-[11px] font-medium text-text-secondary text-center">Nhấn vào một node để xem chi tiết liên kết</p>
+              <p className="text-[11px] font-medium text-text-secondary text-center">
+                {language === 'vi' ? 'Nhấn vào một node để xem chi tiết liên kết' : 'Click a node to view link details'}
+              </p>
             </div>
           )}
 
           <div className="bg-surface border border-border rounded-xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-            <h3 className="text-[11px] font-bold text-text-primary mb-3">Chú thích</h3>
+            <h3 className="text-[11px] font-bold text-text-primary mb-3">
+              {language === 'vi' ? 'Chú thích' : 'Legend'}
+            </h3>
             <div className="space-y-2.5">
-              {['Nhân sự', 'Hành chính', 'Pháp luật', 'Học tập'].map(subj => (
-                <div key={subj} className="flex items-center space-x-3">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getSubjectColorStr(subj) }}></div>
-                  <span className="text-xs text-text-primary font-medium">{subj}</span>
-                </div>
-              ))}
+              {['Nhân sự', 'Hành chính', 'Pháp luật', 'Học tập'].map(subj => {
+                const displaySubj = subj === 'Nhân sự' ? (language === 'vi' ? 'Nhân sự' : 'Human Resources')
+                  : subj === 'Hành chính' ? (language === 'vi' ? 'Hành chính' : 'Administration')
+                  : subj === 'Pháp luật' ? (language === 'vi' ? 'Pháp luật' : 'Law')
+                  : (language === 'vi' ? 'Học tập' : 'Study');
+                return (
+                  <div key={subj} className="flex items-center space-x-3">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getSubjectColorStr(subj) }}></div>
+                    <span className="text-xs text-text-primary font-medium">{displaySubj}</span>
+                  </div>
+                );
+              })}
               <div className="flex items-center space-x-3 pt-1">
                 <div className="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
-                <span className="text-xs text-text-primary font-medium">Khác</span>
+                <span className="text-xs text-text-primary font-medium">
+                  {language === 'vi' ? 'Khác' : 'Other'}
+                </span>
               </div>
             </div>
           </div>

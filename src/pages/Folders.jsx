@@ -45,17 +45,25 @@ const Folders = () => {
 
   const handleBulkRemoveDocs = async () => {
     if (selectedDocIds.length === 0) return;
-    const isConfirmed = await confirm(`Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?`);
+    const isConfirmed = await confirm(
+      language === 'vi' 
+        ? `Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?` 
+        : `Are you sure you want to remove the ${selectedDocIds.length} selected documents from this folder?`
+    );
     if (!isConfirmed) return;
     try {
       await Promise.all(selectedDocIds.map(docId => API.put(`/documents/${docId}`, { folder_id: null })));
-      toast.success(`Đã loại bỏ thành công ${selectedDocIds.length} tài liệu!`);
+      toast.success(
+        language === 'vi' 
+          ? `Đã loại bỏ thành công ${selectedDocIds.length} tài liệu!` 
+          : `Successfully removed ${selectedDocIds.length} documents!`
+      );
       setSelectedDocIds([]);
       // Refresh folder detail view
       const updatedFolderRes = await API.get(`/documents/folders/${selectedFolder.id}`);
       setSelectedFolder(updatedFolderRes.data);
     } catch (err) {
-      toast.error('Lỗi khi loại bỏ tài liệu khỏi thư mục');
+      toast.error(language === 'vi' ? 'Lỗi khi loại bỏ tài liệu khỏi thư mục' : 'Error removing documents from folder');
     }
   };
 
@@ -98,11 +106,11 @@ const Folders = () => {
     setCreating(true);
     try {
       const res = await API.post('/documents/folders', { name: newFolderName.trim() });
-      toast.success('Đã tạo thư mục thành công!');
+      toast.success(language === 'vi' ? 'Đã tạo thư mục thành công!' : 'Folder created successfully!');
       setFolders(prev => [res.data, ...prev]);
       setNewFolderName('');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Tạo thư mục thất bại');
+      toast.error(err.response?.data?.error || (language === 'vi' ? 'Tạo thư mục thất bại' : 'Failed to create folder'));
     } finally {
       setCreating(false);
     }
@@ -113,25 +121,34 @@ const Folders = () => {
       const res = await API.get(`/documents/folders/${folder.id}`);
       setSelectedFolder(res.data);
       setChatMessages([
-        { role: 'ai', text: `Tôi đã sẵn sàng phân tích ${res.data.documents?.length || 0} tài liệu trong thư mục "${res.data.name}". Bạn muốn tìm hiểu điều gì?` }
+        { 
+          role: 'ai', 
+          text: language === 'vi' 
+            ? `Tôi đã sẵn sàng phân tích ${res.data.documents?.length || 0} tài liệu trong thư mục "${res.data.name}". Bạn muốn tìm hiểu điều gì?` 
+            : `I am ready to analyze ${res.data.documents?.length || 0} documents in the folder "${res.data.name}". What would you like to know?` 
+        }
       ]);
     } catch (err) {
-      toast.error('Không thể mở thư mục này.');
+      toast.error(language === 'vi' ? 'Không thể mở thư mục này.' : 'Failed to open this folder.');
     }
   };
 
   const handleDeleteFolder = async (folderId) => {
-    const isConfirmed = await confirm('Bạn có chắc muốn xóa thư mục này? (Các tài liệu bên trong sẽ không bị xóa, chỉ được đưa ra ngoài thư mục)');
+    const isConfirmed = await confirm(
+      language === 'vi' 
+        ? 'Bạn có chắc muốn xóa thư mục này? (Các tài liệu bên trong sẽ không bị xóa, chỉ được đưa ra ngoài thư mục)' 
+        : 'Are you sure you want to delete this folder? (Documents inside will not be deleted, they will just be moved outside)'
+    );
     if (!isConfirmed) return;
     try {
       await API.delete(`/documents/folders/${folderId}`);
-      toast.success('Đã xóa thư mục!');
+      toast.success(language === 'vi' ? 'Đã xóa thư mục!' : 'Folder deleted!');
       if (selectedFolder && selectedFolder.id === folderId) {
         setSelectedFolder(null);
       }
       fetchFolders(true);
     } catch (err) {
-      toast.error('Xóa thư mục thất bại');
+      toast.error(language === 'vi' ? 'Xóa thư mục thất bại' : 'Failed to delete folder');
     }
   };
 
@@ -143,11 +160,12 @@ const Folders = () => {
     }
     try {
       const res = await API.put(`/documents/folders/${selectedFolder.id}`, { name: renameInput.trim() });
-      toast.success('Đổi tên thư mục thành công!');
+      toast.success('Đã đổi tên thư mục!');
       setSelectedFolder(prev => ({ ...prev, name: res.data.name }));
+      setFolders(prev => prev.map(f => f.id === selectedFolder.id ? { ...f, name: res.data.name } : f));
       setIsEditingName(false);
     } catch (err) {
-      toast.error('Lỗi khi đổi tên thư mục');
+      toast.error(err.response?.data?.error || 'Đổi tên thư mục thất bại');
     }
   };
 
@@ -204,16 +222,20 @@ const Folders = () => {
 
   const handleRemoveDocFromFolder = async (e, docId) => {
     e.stopPropagation();
-    const isConfirmed = await confirm('Bạn có chắc muốn loại bỏ tài liệu này khỏi thư mục?');
+    const isConfirmed = await confirm(
+      language === 'vi' 
+        ? 'Bạn có chắc muốn loại bỏ tài liệu này khỏi thư mục?' 
+        : 'Are you sure you want to remove this document from the folder?'
+    );
     if (!isConfirmed) return;
     try {
       await API.put(`/documents/${docId}`, { folder_id: null });
-      toast.success('Đã loại bỏ tài liệu khỏi thư mục!');
+      toast.success(language === 'vi' ? 'Đã loại bỏ tài liệu khỏi thư mục!' : 'Successfully removed document from the folder!');
       // Refresh folder detail view
       const updatedFolderRes = await API.get(`/documents/folders/${selectedFolder.id}`);
       setSelectedFolder(updatedFolderRes.data);
     } catch (err) {
-      toast.error('Lỗi khi loại bỏ tài liệu');
+      toast.error(language === 'vi' ? 'Lỗi khi loại bỏ tài liệu' : 'Error removing document');
     }
   };
 
@@ -243,7 +265,7 @@ const Folders = () => {
   // IF A FOLDER IS OPENED: Show split detail view (Left documents list, Right AI Chat)
   if (selectedFolder) {
     return (
-      <div className="max-w-7xl mx-auto pb-12 flex flex-col h-full">
+      <div className="max-w-7xl mx-auto pb-12 flex flex-col lg:h-full">
         {/* Back navigation */}
         <div className="flex items-center justify-between mb-6 shrink-0">
           <button
@@ -263,10 +285,10 @@ const Folders = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:flex-1 lg:overflow-hidden">
 
           {/* LEFT SIDE: Documents List in Folder */}
-          <div className="lg:col-span-1 bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
+          <div className="lg:col-span-1 bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col lg:h-[calc(100vh-200px)] h-[350px] lg:min-h-[400px]">
             <div className="flex items-center justify-between mb-4 border-b border-border pb-4 shrink-0">
               <div className="flex items-center space-x-3 w-full min-w-0">
                 <Folder className="w-6 h-6 text-primary shrink-0" />
@@ -378,7 +400,7 @@ const Folders = () => {
           </div>
 
           {/* RIGHT SIDE: Folder AI Chat Box */}
-          <div className="lg:col-span-2 bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col h-[calc(100vh-200px)] min-h-[500px]">
+          <div className="lg:col-span-2 bg-surface border border-border rounded-xl p-6 shadow-sm flex flex-col lg:h-[calc(100vh-200px)] h-[500px] max-h-[75vh] lg:max-h-none lg:min-h-[400px]">
             <div className="flex items-center justify-between border-b border-border pb-4 mb-4 shrink-0">
               <div className="flex items-center space-x-2">
                 <MessageSquare className="w-5 h-5 text-primary" />
@@ -459,7 +481,7 @@ const Folders = () => {
             type="text"
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
-            placeholder="Nhập tên thư mục muốn tạo (VD: Luật Lao Động 2026, Dự Án Marketing...)"
+            placeholder={language === 'vi' ? "Nhập tên thư mục muốn tạo (VD: Luật Lao Động 2026, Dự Án Marketing...)" : "Enter folder name (e.g. Labor Law 2026, Marketing Project...)"}
             className="w-full bg-background border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition"
           />
         </div>
@@ -469,7 +491,7 @@ const Folders = () => {
           className="w-full md:w-auto bg-primary hover:bg-primary-dark disabled:bg-primary/50 text-white font-semibold px-6 py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-sm"
         >
           {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          <span>Tạo thư mục</span>
+          <span>{language === 'vi' ? 'Tạo thư mục' : 'Create Folder'}</span>
         </button>
       </form>
 
