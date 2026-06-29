@@ -6,10 +6,12 @@ import { useNavigate } from 'react-router-dom';
 import ConfirmModal from './ConfirmModal';
 import DocumentSelectModal from './DocumentSelectModal';
 import { AuthContext } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const { language } = useLanguage();
   const [folder, setFolder] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,6 +30,17 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   const [renameInput, setRenameInput] = useState('');
   const [selectedDocIds, setSelectedDocIds] = useState([]);
 
+  const getSubjectLabel = (subj) => {
+    const s = subj || 'Khác';
+    const trimmed = s.trim();
+    if (trimmed === 'Nhân sự') return language === 'vi' ? 'Nhân sự' : 'Human Resources';
+    if (trimmed === 'Hành chính') return language === 'vi' ? 'Hành chính' : 'Administration';
+    if (trimmed === 'Pháp luật') return language === 'vi' ? 'Pháp luật' : 'Law';
+    if (trimmed === 'Học tập') return language === 'vi' ? 'Học tập' : 'Study';
+    if (trimmed === 'Khác' || trimmed.toLowerCase() === 'unknown' || trimmed.toLowerCase() === 'general' || trimmed.toLowerCase() === 'auto') return language === 'vi' ? 'Khác' : 'Other';
+    return s;
+  };
+
   // Reset selected docs and editing state when modal opens/closes or folderId changes
   useEffect(() => {
     setSelectedDocIds([]);
@@ -43,12 +56,12 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
     }
     try {
       const res = await API.put(`/documents/folders/${folderId}`, { name: renameInput.trim() });
-      toast.success('Đổi tên thư mục thành công!');
+      toast.success(language === 'vi' ? 'Đổi tên thư mục thành công!' : 'Folder renamed successfully!');
       setFolder(prev => ({ ...prev, name: res.data.name }));
       setIsEditingName(false);
       if (onFolderDeleted) onFolderDeleted(); // triggers parent refresh
     } catch (err) {
-      toast.error('Lỗi khi đổi tên thư mục');
+      toast.error(language === 'vi' ? 'Lỗi khi đổi tên thư mục' : 'Error renaming folder');
     }
   };
 
@@ -69,19 +82,25 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   const handleBulkRemoveDocs = () => {
     if (selectedDocIds.length === 0) return;
     triggerConfirm(
-      'Xóa các tài liệu đã chọn?',
-      `Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?`,
-      'Loại bỏ',
+      language === 'vi' ? 'Xóa các tài liệu đã chọn?' : 'Remove selected documents?',
+      language === 'vi' 
+        ? `Bạn có chắc muốn loại bỏ ${selectedDocIds.length} tài liệu đã chọn khỏi thư mục này?` 
+        : `Are you sure you want to remove the ${selectedDocIds.length} selected documents from this folder?`,
+      language === 'vi' ? 'Loại bỏ' : 'Remove',
       async () => {
         try {
           await Promise.all(selectedDocIds.map(docId => API.put(`/documents/${docId}`, { folder_id: null })));
-          toast.success(`Đã loại bỏ thành công ${selectedDocIds.length} tài liệu khỏi thư mục!`);
+          toast.success(
+            language === 'vi' 
+              ? `Đã loại bỏ thành công ${selectedDocIds.length} tài liệu khỏi thư mục!` 
+              : `Successfully removed ${selectedDocIds.length} documents from the folder!`
+          );
           setSelectedDocIds([]);
           // Refresh details
           fetchFolderDetails();
           if (onFolderDeleted) onFolderDeleted();
         } catch (err) {
-          toast.error('Có lỗi xảy ra khi loại bỏ tài liệu');
+          toast.error(language === 'vi' ? 'Có lỗi xảy ra khi loại bỏ tài liệu' : 'An error occurred while removing documents');
         }
       }
     );
@@ -116,7 +135,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
         fetchShares();
       }
     } catch (err) {
-      toast.error('Lỗi khi tải chi tiết thư mục!');
+      toast.error(language === 'vi' ? 'Lỗi khi tải chi tiết thư mục!' : 'Failed to load folder details!');
       onClose();
     } finally {
       setLoading(false);
@@ -134,38 +153,38 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
 
   const handleShareFolder = async (e) => {
     e.preventDefault();
-    if (!shareEmail.trim()) return toast.error('Vui lòng điền email!');
+    if (!shareEmail.trim()) return toast.error(language === 'vi' ? 'Vui lòng điền email!' : 'Please enter an email address!');
     try {
       await API.post('/shares/folders/share', {
         folderId,
         sharedToEmail: shareEmail.trim(),
         permissionRole: shareRole
       });
-      toast.success('Chia sẻ thư mục thành công!');
+      toast.success(language === 'vi' ? 'Chia sẻ thư mục thành công!' : 'Folder shared successfully!');
       setShareEmail('');
       fetchShares();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Lỗi khi chia sẻ thư mục.');
+      toast.error(err.response?.data?.error || (language === 'vi' ? 'Lỗi khi chia sẻ thư mục.' : 'Error sharing folder.'));
     }
   };
 
   const handleRevokeShare = async (shareId) => {
     try {
       await API.delete(`/shares/folders/shares/${shareId}`);
-      toast.success('Đã thu hồi quyền truy cập.');
+      toast.success(language === 'vi' ? 'Đã thu hồi quyền truy cập.' : 'Access revoked.');
       fetchShares();
     } catch (err) {
-      toast.error('Không thể thu hồi quyền chia sẻ.');
+      toast.error(language === 'vi' ? 'Không thể thu hồi quyền chia sẻ.' : 'Failed to revoke folder share.');
     }
   };
 
   const handleChangeSharePermission = async (shareId, newRole) => {
     try {
       await API.put(`/shares/folders/shares/${shareId}`, { permissionRole: newRole });
-      toast.success('Cập nhật quyền truy cập thành công!');
+      toast.success(language === 'vi' ? 'Cập nhật quyền truy cập thành công!' : 'Access permission updated successfully!');
       fetchShares();
     } catch (err) {
-      toast.error('Không thể cập nhật quyền chia sẻ.');
+      toast.error(language === 'vi' ? 'Không thể cập nhật quyền chia sẻ.' : 'Failed to update folder share permission.');
     }
   };
 
@@ -179,17 +198,19 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
 
   const handleDeleteFolder = () => {
     triggerConfirm(
-      'Xóa thư mục này?',
-      'Bạn có chắc muốn xóa thư mục này? (Các tài liệu bên trong sẽ không bị xóa, chỉ được đưa ra ngoài thư mục)',
-      'Xác nhận xóa',
+      language === 'vi' ? 'Xóa thư mục này?' : 'Delete this folder?',
+      language === 'vi' 
+        ? 'Bạn có chắc muốn xóa thư mục này? (Các tài liệu bên trong sẽ không bị xóa, chỉ được đưa ra ngoài thư mục)' 
+        : 'Are you sure you want to delete this folder? (Documents inside will not be deleted, they will just be moved outside)',
+      language === 'vi' ? 'Xác nhận xóa' : 'Confirm Delete',
       async () => {
         try {
           await API.delete(`/documents/folders/${folderId}`);
-          toast.success('Đã xóa thư mục!');
+          toast.success(language === 'vi' ? 'Đã xóa thư mục!' : 'Folder deleted!');
           if (onFolderDeleted) onFolderDeleted();
           onClose();
         } catch (err) {
-          toast.error('Xóa thư mục thất bại');
+          toast.error(language === 'vi' ? 'Xóa thư mục thất bại' : 'Failed to delete folder');
         }
       }
     );
@@ -198,13 +219,13 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
   const handleRemoveDocFromFolder = (e, docId) => {
     e.stopPropagation();
     triggerConfirm(
-      'Xóa khỏi thư mục?',
-      'Bạn có chắc muốn xóa tài liệu này khỏi thư mục?',
-      'Xóa khỏi thư mục',
+      language === 'vi' ? 'Xóa khỏi thư mục?' : 'Remove from folder?',
+      language === 'vi' ? 'Bạn có chắc muốn xóa tài liệu này khỏi thư mục?' : 'Are you sure you want to remove this document from the folder?',
+      language === 'vi' ? 'Xóa khỏi thư mục' : 'Remove',
       async () => {
         try {
           await API.put(`/documents/${docId}`, { folder_id: null });
-          toast.success('Đã xóa tài liệu khỏi thư mục!');
+          toast.success(language === 'vi' ? 'Đã xóa tài liệu khỏi thư mục!' : 'Document removed from folder!');
           setFolder(prev => {
             if (!prev) return null;
             return {
@@ -214,7 +235,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
           });
           if (onFolderDeleted) onFolderDeleted();
         } catch (err) {
-          toast.error('Xóa tài liệu khỏi thư mục thất bại');
+          toast.error(language === 'vi' ? 'Xóa tài liệu khỏi thư mục thất bại' : 'Failed to remove document from folder');
         }
       }
     );
@@ -233,35 +254,41 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
       setAllDocs(available);
       setIsDocModalOpen(true);
     } catch (err) {
-      toast.error('Không thể tải danh sách tài liệu.');
+      toast.error(language === 'vi' ? 'Không thể tải danh sách tài liệu.' : 'Failed to load document list.');
     }
   };
 
   const handleAddDocToFolder = async (selectedIds) => {
     try {
       await API.post(`/documents/folders/${folderId}/add-documents`, { documentIds: selectedIds });
-      toast.success(`Đã thêm ${selectedIds.length} tài liệu vào thư mục!`);
+      toast.success(
+        language === 'vi' 
+          ? `Đã thêm ${selectedIds.length} tài liệu vào thư mục!` 
+          : `Successfully added ${selectedIds.length} documents to the folder!`
+      );
       setIsDocModalOpen(false);
       fetchFolderDetails();
       if (onFolderDeleted) onFolderDeleted();
     } catch (err) {
-      toast.error('Lỗi khi thêm tài liệu vào thư mục');
+      toast.error(language === 'vi' ? 'Lỗi khi thêm tài liệu vào thư mục' : 'Error adding documents to folder');
     }
   };
 
   const handleClearCurrentFolderDocs = () => {
     triggerConfirm(
-      'Gỡ bỏ tất cả tài liệu khỏi thư mục?',
-      `Bạn có chắc muốn loại bỏ toàn bộ tài liệu khỏi thư mục "${folder?.name}"? (Tài liệu gốc vẫn được giữ nguyên trong kho tài liệu)`,
-      'Xác nhận gỡ bỏ',
+      language === 'vi' ? 'Gỡ bỏ tất cả tài liệu khỏi thư mục?' : 'Remove all documents from folder?',
+      language === 'vi' 
+        ? `Bạn có chắc muốn loại bỏ toàn bộ tài liệu khỏi thư mục "${folder?.name}"? (Tài liệu gốc vẫn được giữ nguyên trong kho tài liệu)` 
+        : `Are you sure you want to remove all documents from the folder "${folder?.name}"? (Original files will remain in your library)`,
+      language === 'vi' ? 'Xác nhận gỡ bỏ' : 'Confirm Remove',
       async () => {
         try {
           await API.post('/documents/folders/clear-documents', { folderIds: [folderId] });
-          toast.success('Đã gỡ bỏ toàn bộ tài liệu khỏi thư mục!');
+          toast.success(language === 'vi' ? 'Đã gỡ bỏ toàn bộ tài liệu khỏi thư mục!' : 'All documents removed from folder!');
           fetchFolderDetails();
           if (onFolderDeleted) onFolderDeleted();
         } catch (err) {
-          toast.error(err.response?.data?.error || 'Lỗi khi xóa tài liệu khỏi thư mục');
+          toast.error(err.response?.data?.error || (language === 'vi' ? 'Lỗi khi xóa tài liệu khỏi thư mục' : 'Error removing documents from folder'));
         }
       }
     );
@@ -301,19 +328,21 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                       className="bg-background border border-border rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-primary text-text-primary font-semibold flex-1 min-w-0"
                       autoFocus
                     />
-                    <button type="submit" className="text-primary hover:text-primary-dark font-bold text-xs shrink-0 cursor-pointer">Lưu</button>
-                    <button type="button" onClick={() => setIsEditingName(false)} className="text-text-secondary hover:text-text-primary text-xs shrink-0 cursor-pointer">Hủy</button>
+                    <button type="submit" className="text-primary hover:text-primary-dark font-bold text-xs shrink-0 cursor-pointer">{language === 'vi' ? 'Lưu' : 'Save'}</button>
+                    <button type="button" onClick={() => setIsEditingName(false)} className="text-text-secondary hover:text-text-primary text-xs shrink-0 cursor-pointer">{language === 'vi' ? 'Hủy' : 'Cancel'}</button>
                   </form>
                 ) : (
                   <div className="flex items-center space-x-2 min-w-0 overflow-hidden">
                     <div className="min-w-0">
                       <h2 className="font-extrabold text-xl text-text-primary leading-tight truncate max-w-[200px]">{folder.name}</h2>
-                      <p className="text-xs text-text-secondary">{folder.documents?.length || 0} tài liệu bên trong</p>
+                      <p className="text-xs text-text-secondary">
+                        {folder.documents?.length || 0} {language === 'vi' ? 'tài liệu bên trong' : 'documents inside'}
+                      </p>
                     </div>
                     <button
                       onClick={() => { setIsEditingName(true); setRenameInput(folder.name); }}
                       className="text-text-secondary hover:text-primary transition-colors p-1 cursor-pointer shrink-0"
-                      title="Đổi tên thư mục"
+                      title={language === 'vi' ? "Đổi tên thư mục" : "Rename folder"}
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
@@ -328,7 +357,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                     className="flex items-center space-x-1 bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
                   >
                     <Share2 className="w-3.5 h-3.5" />
-                    <span>Chia sẻ</span>
+                    <span>{language === 'vi' ? 'Chia sẻ' : 'Share'}</span>
                   </button>
                 )}
                 <button
@@ -336,7 +365,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                   className="flex items-center space-x-1 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Thêm tài liệu</span>
+                  <span>{language === 'vi' ? 'Thêm tài liệu' : 'Add document'}</span>
                 </button>
                 {folder.user_id === user?.id && (
                   <button
@@ -344,7 +373,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                     className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xóa thư mục</span>
+                    <span>{language === 'vi' ? 'Xóa thư mục' : 'Delete folder'}</span>
                   </button>
                 )}
               </div>
@@ -355,12 +384,12 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
               <div className="bg-background border border-border rounded-xl p-4 mb-4 shrink-0 space-y-3">
                 <h4 className="text-xs font-bold text-text-primary flex items-center space-x-1.5">
                   <Users className="w-4 h-4 text-primary" />
-                  <span>Quản lý chia sẻ thành viên nhóm</span>
+                  <span>{language === 'vi' ? 'Quản lý chia sẻ thành viên nhóm' : 'Manage sharing with group members'}</span>
                 </h4>
                 <form onSubmit={handleShareFolder} className="flex gap-2">
                   <input
                     type="email"
-                    placeholder="Nhập email bạn học..."
+                    placeholder={language === 'vi' ? "Nhập email bạn học..." : "Enter classmate email..."}
                     value={shareEmail}
                     onChange={e => setShareEmail(e.target.value)}
                     className="bg-surface border border-border rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary text-text-primary flex-1"
@@ -370,15 +399,15 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                     onChange={e => setShareRole(e.target.value)}
                     className="bg-surface border border-border rounded-xl px-2 py-2 text-xs focus:outline-none focus:border-primary text-text-primary"
                   >
-                    <option value="viewer">Viewer (Xem)</option>
-                    <option value="editor">Editor (Sửa)</option>
+                    <option value="viewer">Viewer ({language === 'vi' ? 'Xem' : 'View'})</option>
+                    <option value="editor">Editor ({language === 'vi' ? 'Sửa' : 'Edit'})</option>
                   </select>
                   <button
                     type="submit"
                     className="bg-primary hover:bg-primary-dark text-white rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer flex items-center space-x-1"
                   >
                     <Send className="w-3 h-3" />
-                    <span>Gửi</span>
+                    <span>{language === 'vi' ? 'Gửi' : 'Send'}</span>
                   </button>
                 </form>
                 
@@ -394,14 +423,14 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                             onChange={(e) => handleChangeSharePermission(sh.id, e.target.value)}
                             className="bg-slate-100 dark:bg-slate-800 text-text-secondary text-[10px] px-2 py-1 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary border border-border cursor-pointer font-bold"
                           >
-                            <option value="viewer">Viewer (Xem)</option>
-                            <option value="editor">Editor (Sửa)</option>
+                            <option value="viewer">Viewer ({language === 'vi' ? 'Xem' : 'View'})</option>
+                            <option value="editor">Editor ({language === 'vi' ? 'Sửa' : 'Edit'})</option>
                           </select>
                           <button
                             onClick={() => handleRevokeShare(sh.id)}
                             className="text-red-500 hover:text-red-600 font-bold transition cursor-pointer"
                           >
-                            Thu hồi
+                            {language === 'vi' ? 'Thu hồi' : 'Revoke'}
                           </button>
                         </div>
                       </div>
@@ -422,7 +451,9 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                     className="w-4 h-4 rounded text-primary focus:ring-primary border-border cursor-pointer accent-primary"
                   />
                   <span className="text-xs font-semibold text-text-secondary">
-                    {selectedDocIds.length > 0 ? `Đã chọn ${selectedDocIds.length} tài liệu` : 'Chọn tất cả tài liệu'}
+                    {selectedDocIds.length > 0 
+                      ? (language === 'vi' ? `Đã chọn ${selectedDocIds.length} tài liệu` : `Selected ${selectedDocIds.length} documents`) 
+                      : (language === 'vi' ? 'Chọn tất cả tài liệu' : 'Select all documents')}
                   </span>
                 </div>
                 {selectedDocIds.length > 0 && (
@@ -431,7 +462,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                     className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer shadow-sm animate-pulse"
                   >
                     <FolderMinus className="w-3.5 h-3.5" />
-                    <span>Xóa khỏi thư mục</span>
+                    <span>{language === 'vi' ? 'Xóa khỏi thư mục' : 'Remove from folder'}</span>
                   </button>
                 )}
               </div>
@@ -465,7 +496,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                         <h4 className="font-extrabold text-sm text-text-primary truncate max-w-[280px] hover:text-primary hover:underline transition-colors">{doc.title}</h4>
                         <div className="flex items-center space-x-2 mt-1">
                           <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded">
-                            {doc.subject}
+                            {getSubjectLabel(doc.subject)}
                           </span>
                           <span className="text-[9px] text-text-secondary">
                             {new Date(doc.created_at).toISOString().split('T')[0]}
@@ -479,7 +510,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                     <button
                       onClick={(e) => handleRemoveDocFromFolder(e, doc.id)}
                       className="p-2 text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                      title="Xóa khỏi thư mục"
+                      title={language === 'vi' ? "Xóa khỏi thư mục" : "Remove from folder"}
                     >
                       <FolderMinus className="w-4 h-4" />
                     </button>
@@ -492,7 +523,7 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
 
               {(!folder.documents || folder.documents.length === 0) && (
                 <div className="text-center py-16 text-text-secondary text-sm italic">
-                  Không có tài liệu nào trong thư mục này.
+                  {language === 'vi' ? 'Không có tài liệu nào trong thư mục này.' : 'No documents in this folder.'}
                 </div>
               )}
             </div>

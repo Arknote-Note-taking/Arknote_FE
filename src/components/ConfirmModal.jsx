@@ -1,7 +1,12 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
-const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText = 'Xác nhận' }) => {
+const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText }) => {
+  const { language } = useLanguage();
   if (!isOpen) return null;
+
+  const defaultConfirmText = confirmText || (language === 'vi' ? 'Xác nhận' : 'Confirm');
+  const cancelText = language === 'vi' ? 'Hủy' : 'Cancel';
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
@@ -13,7 +18,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText 
             onClick={onClose} 
             className="px-4 py-2 text-sm font-medium text-text-primary bg-background border border-border hover:bg-black/5 rounded-lg transition-colors"
           >
-            Hủy
+            {cancelText}
           </button>
           <button 
             onClick={() => {
@@ -22,7 +27,7 @@ const ConfirmModal = ({ isOpen, onClose, onConfirm, title, message, confirmText 
             }} 
             className="px-4 py-2 text-sm font-medium text-white bg-[#dc2626] hover:bg-[#b91c1c] rounded-lg transition-colors shadow-sm"
           >
-            {confirmText}
+            {defaultConfirmText}
           </button>
         </div>
       </div>

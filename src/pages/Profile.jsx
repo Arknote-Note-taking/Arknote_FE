@@ -5,11 +5,13 @@ import { AuthContext } from '../context/AuthContext';
 import { User, Mail, Shield, Calendar, Edit3, Save, X, Loader2, Eye, EyeOff, Zap, ChevronRight, Settings, Bell, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useConfirm } from '../context/ConfirmContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, login, logout } = useContext(AuthContext);
   const { confirm } = useConfirm();
+  const { language, setLanguage, t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState('');
@@ -21,11 +23,8 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('profile');
   const [phone, setPhone] = useState(() => localStorage.getItem('profile_phone') || '');
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('profile_muted') === 'true');
-  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const notifDropdownRef = useRef(null);
 
-  // Theme & Language states
-  const [language, setLanguage] = useState(() => localStorage.getItem('profile_lang') || 'vi');
+
 
   // Change Password State
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -56,7 +55,7 @@ const Profile = () => {
         setNewName(res.data.name);
         login(res.data);
       } catch (error) {
-        toast.error("Không thể tải thông tin hồ sơ");
+        toast.error(language === 'vi' ? "Không thể tải thông tin hồ sơ" : "Failed to load profile details");
       } finally {
         setLoading(false);
       }
@@ -66,8 +65,7 @@ const Profile = () => {
 
   const handleLangChange = (lang) => {
     setLanguage(lang);
-    localStorage.setItem('profile_lang', lang);
-    toast.success(`Đã chuyển sang ${lang === 'vi' ? 'Tiếng Việt' : 'Tiếng Anh'}`);
+    toast.success(lang === 'vi' ? 'Đã chuyển sang Tiếng Việt' : 'Switched to English');
   };
 
   const handleMuteToggle = (muted) => {
@@ -75,22 +73,13 @@ const Profile = () => {
     localStorage.setItem('profile_muted', muted ? 'true' : 'false');
   };
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target)) {
-        setShowNotifDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
+
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) return toast.error("Chỉ hỗ trợ định dạng hình ảnh");
-    if (file.size > 5 * 1024 * 1024) return toast.error("Kích thước ảnh tối đa là 5MB");
+    if (!file.type.startsWith('image/')) return toast.error(language === 'vi' ? "Chỉ hỗ trợ định dạng hình ảnh" : "Only image formats are supported");
+    if (file.size > 5 * 1024 * 1024) return toast.error(language === 'vi' ? "Kích thước ảnh tối đa là 5MB" : "Maximum image size is 5MB");
 
     const formData = new FormData();
     formData.append('avatar', file);
@@ -102,9 +91,9 @@ const Profile = () => {
       });
       setProfile(res.data);
       login({ ...user, avatar_url: res.data.avatar_url });
-      toast.success("Cập nhật ảnh đại diện thành công!");
+      toast.success(language === 'vi' ? "Cập nhật ảnh đại diện thành công!" : "Avatar updated successfully!");
     } catch (error) {
-      toast.error("Không thể tải ảnh lên");
+      toast.error(language === 'vi' ? "Không thể tải ảnh lên" : "Failed to upload image");
     } finally {
       setUploading(false);
     }
@@ -112,7 +101,7 @@ const Profile = () => {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    if (!newName.trim()) return toast.error("Tên không được để trống");
+    if (!newName.trim()) return toast.error(language === 'vi' ? "Tên không được để trống" : "Name cannot be empty");
 
     setUpdating(true);
     try {
@@ -124,9 +113,9 @@ const Profile = () => {
       // Update AuthContext so header and other components reflect the change
       login({ ...user, name: res.data.name, avatar_url: res.data.avatar_url });
       setIsEditing(false);
-      toast.success("Cập nhật hồ sơ thành công!");
+      toast.success(language === 'vi' ? "Cập nhật hồ sơ thành công!" : "Profile updated successfully!");
     } catch (error) {
-      toast.error(error.response?.data?.error || "Cập nhật thất bại");
+      toast.error(error.response?.data?.error || (language === 'vi' ? "Cập nhật thất bại" : "Profile update failed"));
     } finally {
       setUpdating(false);
     }
@@ -136,11 +125,11 @@ const Profile = () => {
     setPassLoading(true);
     try {
       await API.post('/auth/forgot-password', { email: profile.email });
-      toast.success('Mã OTP đã được gửi đến email của bạn');
+      toast.success(language === 'vi' ? 'Mã OTP đã được gửi đến email của bạn' : 'OTP code has been sent to your email');
       setOtpSent(true);
       setCountdown(60);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Có lỗi xảy ra khi gửi OTP');
+      toast.error(err.response?.data?.error || (language === 'vi' ? 'Có lỗi xảy ra khi gửi OTP' : 'Failed to send OTP'));
     } finally {
       setPassLoading(false);
     }
@@ -148,8 +137,8 @@ const Profile = () => {
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) return toast.error('Mật khẩu xác nhận không khớp');
-    if (newPassword.length < 6) return toast.error('Mật khẩu phải có ít nhất 6 ký tự');
+    if (newPassword !== confirmPassword) return toast.error(language === 'vi' ? 'Mật khẩu xác nhận không khớp' : 'Passwords do not match');
+    if (newPassword.length < 6) return toast.error(language === 'vi' ? 'Mật khẩu phải có ít nhất 6 ký tự' : 'Password must be at least 6 characters');
 
     setPassLoading(true);
     try {
@@ -195,8 +184,12 @@ const Profile = () => {
     <div className="max-w-6xl w-full mx-auto px-4 pb-12 animate-fadeIn">
       {/* Page Title */}
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-text-primary tracking-tight bg-gradient-to-r from-primary to-[#52B788] bg-clip-text text-transparent">Hồ sơ cá nhân</h1>
-        <p className="text-text-secondary mt-1 text-sm">Quản lý thông tin tài khoản và tùy chỉnh cài đặt của bạn</p>
+        <h1 className="text-3xl font-extrabold text-text-primary tracking-tight bg-gradient-to-r from-primary to-[#52B788] bg-clip-text text-transparent">
+          {language === 'vi' ? 'Hồ sơ cá nhân' : 'Personal Profile'}
+        </h1>
+        <p className="text-text-secondary mt-1 text-sm">
+          {language === 'vi' ? 'Quản lý thông tin tài khoản và tùy chỉnh cài đặt của bạn' : 'Manage your account details and customize preferences'}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -243,7 +236,7 @@ const Profile = () => {
                 >
                   <div className="flex items-center space-x-3">
                     <User className="w-4 h-4 text-primary" />
-                    <span>Hồ sơ của tôi</span>
+                    <span>{t('myProfile')}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
                 </button>
@@ -261,7 +254,7 @@ const Profile = () => {
                 >
                   <div className="flex items-center space-x-3">
                     <Shield className="w-4 h-4 text-primary" />
-                    <span>Thay đổi mật khẩu</span>
+                    <span>{t('changePassword')}</span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
                 </button>
@@ -270,15 +263,15 @@ const Profile = () => {
                 <div className="flex items-center justify-between p-3 rounded-xl text-xs font-bold text-text-primary border border-transparent">
                   <div className="flex items-center space-x-3">
                     <Settings className="w-4 h-4 text-primary" />
-                    <span>Ngôn ngữ</span>
+                    <span>{t('language')}</span>
                   </div>
                   <select
                     value={language}
                     onChange={(e) => handleLangChange(e.target.value)}
-                    className="bg-background border border-border rounded-xl px-2.5 py-1 text-[10px] text-text-primary focus:outline-none focus:border-primary cursor-pointer font-bold"
+                    className="w-24 bg-background border border-border rounded-xl px-2.5 py-1 text-[10px] text-text-primary focus:outline-none focus:border-primary cursor-pointer font-bold"
                   >
-                    <option value="vi">Tiếng Việt</option>
-                    <option value="en">Tiếng Anh</option>
+                    <option value="vi">{language === 'vi' ? 'Tiếng Việt' : 'Vietnamese'}</option>
+                    <option value="en">{language === 'vi' ? 'Tiếng Anh' : 'English'}</option>
                   </select>
                 </div>
 
@@ -286,32 +279,16 @@ const Profile = () => {
                 <div className="flex items-center justify-between p-3 rounded-xl text-xs font-bold text-text-primary border border-transparent">
                   <div className="flex items-center space-x-3">
                     <Bell className="w-4 h-4 text-primary" />
-                    <span>Thông báo</span>
+                    <span>{t('notifications')}</span>
                   </div>
-                  <div className="relative" ref={notifDropdownRef}>
-                    <button
-                      onClick={() => setShowNotifDropdown(!showNotifDropdown)}
-                      className="text-[10px] font-black text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-lg cursor-pointer hover:bg-primary/20 transition-all uppercase"
-                    >
-                      {isMuted ? 'Mute' : 'Allow'}
-                    </button>
-                    {showNotifDropdown && (
-                      <div className="absolute right-0 top-full mt-1.5 w-24 bg-surface border border-border rounded-xl shadow-lg py-1 z-20">
-                        <button
-                          onClick={() => { handleMuteToggle(false); setShowNotifDropdown(false); }}
-                          className="w-full text-left px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 text-[10px] font-bold text-text-primary cursor-pointer"
-                        >
-                          Allow
-                        </button>
-                        <button
-                          onClick={() => { handleMuteToggle(true); setShowNotifDropdown(false); }}
-                          className="w-full text-left px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 text-[10px] font-bold text-text-primary cursor-pointer"
-                        >
-                          Mute
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <select
+                    value={isMuted ? 'mute' : 'allow'}
+                    onChange={(e) => handleMuteToggle(e.target.value === 'mute')}
+                    className="w-24 bg-background border border-border rounded-xl px-2.5 py-1 text-[10px] text-text-primary focus:outline-none focus:border-primary cursor-pointer font-bold"
+                  >
+                    <option value="allow">{language === 'vi' ? 'Cho phép' : 'Allow'}</option>
+                    <option value="mute">{language === 'vi' ? 'Tắt tiếng' : 'Mute'}</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -323,7 +300,7 @@ const Profile = () => {
                 className="w-full flex items-center space-x-3 p-3 rounded-xl hover:bg-red-500/10 text-xs text-red-500 font-bold transition-all cursor-pointer border border-transparent"
               >
                 <LogOut className="w-4 h-4 text-red-500" />
-                <span>Đăng xuất</span>
+                <span>{language === 'vi' ? 'Đăng xuất' : 'Logout'}</span>
               </button>
             </div>
           </div>
@@ -367,13 +344,13 @@ const Profile = () => {
                         className="flex items-center space-x-2 text-primary hover:bg-primary/5 bg-primary/5 hover:border-primary/40 px-4 py-2 rounded-xl transition-all font-semibold text-sm border border-primary/20 cursor-pointer animate-fadeIn"
                       >
                         <Edit3 className="w-4 h-4" />
-                        <span>Chỉnh sửa</span>
+                        <span>{t('edit')}</span>
                       </button>
                     )}
                     <button
                       onClick={() => navigate('/')}
                       className="text-text-secondary hover:text-text-primary transition-colors p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                      title="Đóng trang hồ sơ"
+                      title={language === 'vi' ? "Đóng trang hồ sơ" : "Close profile page"}
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -385,7 +362,7 @@ const Profile = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {/* Display name */}
                     <div>
-                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Tên hiển thị</label>
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">{t('displayName')}</label>
                       <input
                         type="text"
                         value={newName}
@@ -395,34 +372,34 @@ const Profile = () => {
                           ? 'border-primary focus:ring-4 focus:ring-primary/10 outline-none text-text-primary'
                           : 'border-border text-text-secondary cursor-not-allowed opacity-80'
                           }`}
-                        placeholder="Nhập tên hiển thị"
-                      />
-                    </div>
-
-                    {/* Email account */}
-                    <div className="opacity-80">
-                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Địa chỉ Email</label>
-                      <input
-                        type="email"
-                        value={profile.email}
-                        readOnly
-                        className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-text-secondary cursor-not-allowed font-semibold"
+                        placeholder={language === 'vi' ? "Nhập tên hiển thị" : "Enter display name"}
                       />
                     </div>
 
                     {/* Mobile number */}
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Số điện thoại</label>
+                    <div>
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">{t('phone')}</label>
                       <input
                         type="text"
                         value={phone}
                         readOnly={!isEditing}
                         onChange={(e) => setPhone(e.target.value)}
-                        placeholder={isEditing ? "Nhập số điện thoại của bạn..." : "Chưa cung cấp số điện thoại"}
+                        placeholder={isEditing ? (language === 'vi' ? "Nhập số điện thoại của bạn..." : "Enter your phone number...") : (language === 'vi' ? "Chưa cung cấp số điện thoại" : "Phone number not provided")}
                         className={`w-full px-4 py-3 bg-background border rounded-xl text-sm transition-all font-semibold ${isEditing
                           ? 'border-primary focus:ring-4 focus:ring-primary/10 outline-none text-text-primary'
                           : 'border-border text-text-secondary cursor-not-allowed opacity-80'
                           }`}
+                      />
+                    </div>
+
+                    {/* Email account */}
+                    <div className="sm:col-span-2 opacity-80">
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">{t('emailAddress')}</label>
+                      <input
+                        type="email"
+                        value={profile.email}
+                        readOnly
+                        className="w-full px-4 py-3 bg-background border border-border rounded-xl text-sm text-text-secondary cursor-not-allowed font-semibold"
                       />
                     </div>
                   </div>
@@ -435,8 +412,10 @@ const Profile = () => {
                           <Shield className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Phân quyền</p>
-                          <p className="text-sm font-black text-text-primary capitalize mt-0.5">{profile.role}</p>
+                          <p className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">{t('role')}</p>
+                          <p className="text-sm font-black text-text-primary capitalize mt-0.5">
+                            {profile.role === 'admin' ? t('roleAdmin') : t('roleUser')}
+                          </p>
                         </div>
                       </div>
                       {profile?.role !== 'admin' && (
@@ -445,7 +424,7 @@ const Profile = () => {
                             <Zap className="w-5 h-5 animate-pulse text-amber-500" />
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase font-bold text-text-secondary tracking-wider mb-1">Gói tài khoản</p>
+                            <p className="text-[10px] uppercase font-bold text-text-secondary tracking-wider mb-1">{t('plan')}</p>
                             <div className="flex items-center space-x-2">
                               {profile?.is_pro ? (
                                 <span className="text-[10px] bg-amber-500 text-white font-black px-2.5 py-0.5 rounded-lg shadow-md shadow-amber-500/20 uppercase tracking-wider animate-pulse">
@@ -461,7 +440,7 @@ const Profile = () => {
                                     onClick={() => navigate('/#pricing')}
                                     className="text-[10px] text-primary hover:text-primary-dark font-extrabold cursor-pointer hover:underline animate-pulse"
                                   >
-                                    Nâng cấp
+                                    {language === 'vi' ? 'Nâng cấp' : 'Upgrade'}
                                   </button>
                                 </>
                               )}
@@ -474,8 +453,8 @@ const Profile = () => {
                           <Calendar className="w-5 h-5" />
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">Gia nhập ngày</p>
-                          <p className="text-sm font-black text-text-primary mt-0.5">{new Date(profile.created_at).toLocaleDateString('vi-VN')}</p>
+                          <p className="text-[10px] uppercase font-bold text-text-secondary tracking-wider">{language === 'vi' ? 'Gia nhập ngày' : 'Joined Date'}</p>
+                          <p className="text-sm font-black text-text-primary mt-0.5">{new Date(profile.created_at).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</p>
                         </div>
                       </div>
                     </div>
@@ -489,7 +468,7 @@ const Profile = () => {
                           className="bg-primary hover:bg-primary-dark text-white font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center space-x-2 cursor-pointer disabled:opacity-50"
                         >
                           {updating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                          <span>Lưu thay đổi (Save Change)</span>
+                          <span>{t('saveChanges')}</span>
                         </button>
                         <button
                           type="button"
@@ -499,7 +478,7 @@ const Profile = () => {
                           }}
                           className="px-6 py-3 border border-border bg-surface hover:bg-black/5 dark:hover:bg-white/5 text-text-secondary font-bold text-sm rounded-xl transition-all cursor-pointer text-center"
                         >
-                          Hủy bỏ
+                          {t('cancel')}
                         </button>
                       </div>
                     )}
@@ -516,9 +495,11 @@ const Profile = () => {
                   <div>
                     <h3 className="text-lg font-extrabold text-text-primary flex items-center space-x-2">
                       <Shield className="w-5 h-5 text-primary animate-pulse" />
-                      <span>Thay đổi mật khẩu</span>
+                      <span>{t('changePassword')}</span>
                     </h3>
-                    <p className="text-xs text-text-secondary font-medium mt-1">Cập nhật mật khẩu mới để bảo vệ an toàn cho tài khoản của bạn</p>
+                    <p className="text-xs text-text-secondary font-medium mt-1">
+                      {language === 'vi' ? 'Cập nhật mật khẩu mới để bảo vệ an toàn cho tài khoản của bạn' : 'Update your password to secure your account'}
+                    </p>
                   </div>
                   <button
                     onClick={() => {
@@ -526,7 +507,7 @@ const Profile = () => {
                       setIsChangingPassword(false);
                     }}
                     className="text-text-secondary hover:text-text-primary transition-colors p-1.5 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
-                    title="Quay lại Hồ sơ"
+                    title={language === 'vi' ? "Quay lại Hồ sơ" : "Back to Profile"}
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -535,7 +516,10 @@ const Profile = () => {
                 {!otpSent ? (
                   <div className="space-y-4 bg-background border border-border p-5 rounded-xl animate-fadeIn flex-1 flex flex-col justify-center">
                     <p className="text-xs text-text-secondary leading-relaxed font-semibold">
-                      Chúng tôi sẽ gửi một mã xác minh OTP gồm 6 chữ số đến địa chỉ email đăng ký của bạn <strong>{profile.email}</strong> để đảm bảo bạn chính là người thực hiện yêu cầu này.
+                      {language === 'vi' 
+                        ? `Chúng tôi sẽ gửi một mã xác minh OTP gồm 6 chữ số đến địa chỉ email đăng ký của bạn ${profile.email} để đảm bảo bạn chính là người thực hiện yêu cầu này.` 
+                        : `We will send a 6-digit OTP verification code to your registered email address ${profile.email} to verify your request.`
+                      }
                     </p>
                     <div className="flex items-center space-x-3 pt-2">
                       <button
@@ -544,7 +528,7 @@ const Profile = () => {
                         className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold text-sm py-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 cursor-pointer"
                       >
                         {passLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-                        <span>Gửi mã OTP qua Email</span>
+                        <span>{language === 'vi' ? 'Gửi mã OTP qua Email' : 'Send OTP via Email'}</span>
                       </button>
                     </div>
                   </div>
@@ -552,24 +536,28 @@ const Profile = () => {
                   <form onSubmit={handleChangePassword} className="space-y-4 bg-background border border-border p-5 rounded-xl animate-fadeIn flex-1 flex flex-col justify-between">
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Mã xác nhận (OTP)</label>
+                        <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">
+                          {language === 'vi' ? 'Mã xác nhận (OTP)' : 'Verification Code (OTP)'}
+                        </label>
                         <input
                           type="text"
                           value={otp}
                           onChange={(e) => setOtp(e.target.value)}
-                          placeholder="Nhập 6 số OTP từ email"
+                          placeholder={language === 'vi' ? "Nhập 6 số OTP từ email" : "Enter 6-digit OTP from email"}
                           className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-semibold"
                           required
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Mật khẩu mới</label>
+                        <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">
+                          {language === 'vi' ? 'Mật khẩu mới' : 'New Password'}
+                        </label>
                         <div className="relative">
                           <input
                             type={showNewPassword ? "text" : "password"}
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Ít nhất 6 ký tự"
+                            placeholder={language === 'vi' ? "Ít nhất 6 ký tự" : "At least 6 characters"}
                             className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all pr-12 font-semibold"
                             required
                           />
@@ -584,13 +572,15 @@ const Profile = () => {
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">Xác nhận mật khẩu</label>
+                        <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-2 px-1">
+                          {language === 'vi' ? 'Xác nhận mật khẩu' : 'Confirm Password'}
+                        </label>
                         <div className="relative">
                           <input
                             type={showConfirmPassword ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Nhập lại mật khẩu mới"
+                            placeholder={language === 'vi' ? "Nhập lại mật khẩu mới" : "Re-enter new password"}
                             className="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm text-text-primary focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all pr-12 font-semibold"
                             required
                           />
@@ -613,7 +603,7 @@ const Profile = () => {
                         className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold text-sm py-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 cursor-pointer"
                       >
                         {passLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        <span>Xác nhận đổi mật khẩu</span>
+                        <span>{language === 'vi' ? 'Xác nhận đổi mật khẩu' : 'Confirm password change'}</span>
                       </button>
                       <button
                         type="button"
@@ -622,7 +612,7 @@ const Profile = () => {
                         className="px-6 py-3 border border-primary/20 text-primary hover:bg-primary/5 disabled:opacity-50 font-bold text-sm rounded-xl transition-all whitespace-nowrap flex items-center justify-center space-x-2 cursor-pointer"
                       >
                         <Mail className="w-4 h-4" />
-                        <span>{countdown > 0 ? `Gửi lại (${countdown}s)` : 'Gửi lại mã'}</span>
+                        <span>{countdown > 0 ? (language === 'vi' ? `Gửi lại (${countdown}s)` : `Resend (${countdown}s)`) : (language === 'vi' ? 'Gửi lại mã' : 'Resend Code')}</span>
                       </button>
                       <button
                         type="button"
@@ -637,7 +627,7 @@ const Profile = () => {
                         }}
                         className="px-6 py-3 border border-border bg-surface hover:bg-black/5 dark:hover:bg-white/5 text-text-secondary font-bold text-sm rounded-xl transition-all cursor-pointer text-center"
                       >
-                        Hủy
+                        {t('cancel')}
                       </button>
                     </div>
                   </form>

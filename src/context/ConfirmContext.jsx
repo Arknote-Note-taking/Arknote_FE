@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
 import { AlertTriangle, Info, Trash2, X } from 'lucide-react';
+import { useLanguage } from './LanguageContext';
 
 const ConfirmContext = createContext(null);
 
@@ -12,6 +13,7 @@ export const useConfirm = () => {
 };
 
 export const ConfirmProvider = ({ children }) => {
+  const { language } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState({
     title: 'Xác nhận',
@@ -24,11 +26,12 @@ export const ConfirmProvider = ({ children }) => {
   const resolverRef = useRef(null);
 
   const confirm = (optionsOrMessage) => {
+    const isEn = language === 'en';
     let finalOptions = {
-      title: 'Xác nhận',
+      title: isEn ? 'Confirm' : 'Xác nhận',
       message: '',
-      confirmText: 'Đồng ý',
-      cancelText: 'Hủy',
+      confirmText: isEn ? 'Confirm' : 'Đồng ý',
+      cancelText: isEn ? 'Cancel' : 'Hủy',
       type: 'warning',
     };
 
@@ -36,9 +39,9 @@ export const ConfirmProvider = ({ children }) => {
       finalOptions.message = optionsOrMessage;
       // Automatically detect typical actions like "delete", "remove", "xóa", "hủy bỏ"
       const lower = optionsOrMessage.toLowerCase();
-      if (lower.includes('xóa') || lower.includes('delete') || lower.includes('loại bỏ')) {
-        finalOptions.title = 'Xác nhận xóa';
-        finalOptions.confirmText = 'Xóa';
+      if (lower.includes('xóa') || lower.includes('delete') || lower.includes('loại bỏ') || lower.includes('remove')) {
+        finalOptions.title = isEn ? 'Confirm Delete' : 'Xác nhận xóa';
+        finalOptions.confirmText = isEn ? 'Delete' : 'Xóa';
         finalOptions.type = 'danger';
       }
     } else if (optionsOrMessage && typeof optionsOrMessage === 'object') {
