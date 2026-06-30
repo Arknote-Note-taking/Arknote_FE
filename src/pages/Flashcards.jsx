@@ -20,7 +20,7 @@ const Flashcards = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  const filteredDecks = decks.filter(deck => 
+  const filteredDecks = decks.filter(deck =>
     deck.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     deck.description?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -74,7 +74,7 @@ const Flashcards = () => {
     const newIsPublic = !isPublicDeck;
     const cleanDesc = (sharingDeck.description || '').replace('|||public', '').trim();
     const targetDesc = newIsPublic ? `${cleanDesc} |||public` : cleanDesc;
-    
+
     try {
       const res = await API.put(`/flashcards/${sharingDeck.id}`, {
         title: sharingDeck.title,
@@ -145,6 +145,50 @@ const Flashcards = () => {
     const toastId = toast.loading('Đang khởi tạo bài Quiz trắc nghiệm từ bộ thẻ của bạn...');
     try {
       const res = await API.post(`/flashcards/${activeDeck.id}/quiz`);
+
+      // Async mode: job enqueued — poll status
+      if (res.status === 202 && res.data.jobId) {
+        const jobId = res.data.jobId;
+        toast.loading('AI đang tạo Quiz trong nền...', { id: toastId });
+
+        const poll = setInterval(async () => {
+          try {
+            const statusRes = await API.get(`/jobs/${jobId}/status`);
+            const { status, progress } = statusRes.data;
+            if (status === 'active') {
+              toast.loading(`Đang tạo Quiz... ${progress || 0}%`, { id: toastId });
+            }
+            if (status === 'completed') {
+              clearInterval(poll);
+              const quiz = statusRes.data.result?.quiz;
+              toast.success('Khởi tạo bài Quiz trắc nghiệm thành công!', { id: toastId });
+              if (quiz?.id) navigate(`/quizzes/${quiz.id}`);
+              setGeneratingQuiz(false);
+            }
+            if (status === 'failed') {
+              clearInterval(poll);
+              toast.error(statusRes.data.error || 'Không thể tạo bài Quiz lúc này.', { id: toastId });
+              setGeneratingQuiz(false);
+            }
+          } catch {
+            clearInterval(poll);
+            toast.error('Lỗi kiểm tra trạng thái tạo Quiz.', { id: toastId });
+            setGeneratingQuiz(false);
+          }
+        }, 2500);
+
+        // Safety timeout: 3 minutes
+        setTimeout(() => {
+          clearInterval(poll);
+          if (generatingQuiz) {
+            toast.error('Quá thời gian chờ. Vui lòng thử lại.', { id: toastId });
+            setGeneratingQuiz(false);
+          }
+        }, 180000);
+        return;
+      }
+
+      // Sync mode fallback (no Redis)
       const newQuiz = res.data.quiz;
       toast.success('Khởi tạo bài Quiz trắc nghiệm thành công!', { id: toastId });
       navigate(`/quizzes/${newQuiz.id}`);
@@ -209,8 +253,8 @@ const Flashcards = () => {
 
   const handleDeleteDeck = async (deckId) => {
     const isConfirmed = await confirm(
-      language === 'vi' 
-        ? 'Bạn có chắc chắn muốn xóa bộ thẻ này không? (Toàn bộ thẻ bên trong cũng sẽ bị xóa)' 
+      language === 'vi'
+        ? 'Bạn có chắc chắn muốn xóa bộ thẻ này không? (Toàn bộ thẻ bên trong cũng sẽ bị xóa)'
         : 'Are you sure you want to delete this card deck? (All cards inside will also be deleted)'
     );
     if (!isConfirmed) return;
@@ -253,7 +297,7 @@ const Flashcards = () => {
           setCurrentCardIndex(prev => prev + 1);
         }, 150);
       } else {
-        toast.success('🎉 Chúc mừng! Bạn đã hoàn thành ôn tập bộ thẻ này!');
+        toast.success('Chúc mừng! Bạn đã hoàn thành ôn tập bộ thẻ này!');
         setReviewMode(false);
         setActiveDeck(null);
         fetchDecks();
@@ -303,8 +347,8 @@ const Flashcards = () => {
 
   const handleDeleteCard = async (cardId) => {
     const isConfirmed = await confirm(
-      language === 'vi' 
-        ? 'Bạn có chắc muốn xóa thẻ ghi nhớ này?' 
+      language === 'vi'
+        ? 'Bạn có chắc muốn xóa thẻ ghi nhớ này?'
         : 'Are you sure you want to delete this flashcard?'
     );
     if (!isConfirmed) return;
@@ -406,7 +450,7 @@ const Flashcards = () => {
                     className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-xs text-text-primary focus:outline-none focus:border-primary transition-all font-semibold shadow-xs"
                   />
                   {searchQuery && (
-                    <button 
+                    <button
                       onClick={() => setSearchQuery('')}
                       className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-0.5 rounded-lg transition"
                     >
@@ -588,8 +632,8 @@ const Flashcards = () => {
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>
-                  {generatingQuiz 
-                    ? (language === 'vi' ? 'Đang tạo bài Quiz...' : 'Generating Quiz...') 
+                  {generatingQuiz
+                    ? (language === 'vi' ? 'Đang tạo bài Quiz...' : 'Generating Quiz...')
                     : (language === 'vi' ? 'Làm bài Quiz ôn tập' : 'Take Practice Quiz')
                   }
                 </span>
@@ -598,7 +642,7 @@ const Flashcards = () => {
           </div>
 
           <div>
-             <h2 className="text-xl font-extrabold text-text-primary">{activeDeck?.title?.replace(/^Deck:\s*/i, '').replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '')}</h2>
+            <h2 className="text-xl font-extrabold text-text-primary">{activeDeck?.title?.replace(/^Deck:\s*/i, '').replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '')}</h2>
             {activeDeck?.description && !activeDeck.description.startsWith('Tạo tự động bằng AI từ tài liệu') && (
               <p className="text-xs text-text-secondary mt-0.5">{activeDeck.description}</p>
             )}
@@ -780,8 +824,8 @@ const Flashcards = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[300]">
           <div className="bg-surface border border-border w-full max-w-md p-6 rounded-xl shadow-xl space-y-4">
             <h3 className="text-lg font-bold text-text-primary">
-              {editingDeck 
-                ? (language === 'vi' ? 'Chỉnh sửa bộ thẻ ghi nhớ' : 'Edit flashcard deck') 
+              {editingDeck
+                ? (language === 'vi' ? 'Chỉnh sửa bộ thẻ ghi nhớ' : 'Edit flashcard deck')
                 : (language === 'vi' ? 'Tạo bộ thẻ ghi nhớ mới' : 'Create new flashcard deck')
               }
             </h3>
@@ -884,20 +928,20 @@ const Flashcards = () => {
                 <Share2 className="w-5 h-5 text-primary" />
                 <span>{language === 'vi' ? 'Chia sẻ bộ thẻ Flashcard' : 'Share Flashcard Deck'}</span>
               </h3>
-              <button 
+              <button
                 onClick={() => { setShowShareModal(false); setSharingDeck(null); }}
                 className="text-text-secondary hover:text-text-primary p-1 rounded-lg transition hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <p className="text-xs font-bold text-text-secondary uppercase tracking-wider">{language === 'vi' ? 'Tên bộ thẻ' : 'Deck Name'}</p>
                 <p className="text-sm font-semibold text-text-primary mt-1">{sharingDeck.title?.replace(/^Quiz:\s*/i, '').replace(/^Flashcard:\s*/i, '')}</p>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 bg-background border border-border rounded-2xl">
                 <div className="flex items-center space-x-2">
                   <Globe className={`w-4 h-4 ${isPublicDeck ? 'text-emerald-500 animate-pulse' : 'text-text-secondary'}`} />
@@ -935,7 +979,7 @@ const Flashcards = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="pt-2">
               <button
                 onClick={() => { setShowShareModal(false); setSharingDeck(null); }}

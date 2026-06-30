@@ -1,9 +1,10 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X, Zap, Clock } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getQuotaStatus, formatCountdown } from '../utils/quotaUtils';
 
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
@@ -13,6 +14,24 @@ const MainLayout = ({ children }) => {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // AI Quota countdown state
+  const [quotaStatus, setQuotaStatus] = useState(() => getQuotaStatus());
+
+  useEffect(() => {
+    // Refresh quota status every minute
+    const timer = setInterval(() => {
+      setQuotaStatus(getQuotaStatus());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Also refresh when window gets focus (user might have triggered quota on another tab)
+  useEffect(() => {
+    const onFocus = () => setQuotaStatus(getQuotaStatus());
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
   useEffect(() => {
     setIsMobileSidebarOpen(false);
@@ -136,9 +155,45 @@ const MainLayout = ({ children }) => {
             })}
           </nav>
         </div>
-        <div className="p-4 border-t border-border space-y-4">
-          {/* Plan status card */}
-          {/* Sidebar footer sections removed */}
+        <div className="p-4 border-t border-border space-y-3">
+
+          {/* AI Quota Exhausted Banner */}
+          {quotaStatus.exhausted && user?.role !== 'admin' && (
+            <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Zap className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <p className="text-[11px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+                  {language === 'vi' ? 'Hết lượt AI hôm nay' : 'AI Quota Exhausted'}
+                </p>
+              </div>
+              <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                {language === 'vi'
+                  ? `Bạn đã dùng hết ${user?.is_pro ? '100' : '20'} lượt AI ${user?.is_pro ? '' : 'miễn phí'} trong ngày.`
+                  : `You have used all ${user?.is_pro ? '100' : '20'} ${user?.is_pro ? '' : 'free'} AI requests today.`}
+              </p>
+              <div className="flex items-center gap-1.5 bg-amber-100 dark:bg-amber-900/40 rounded-lg px-2.5 py-1.5">
+                <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[9px] text-amber-600 dark:text-amber-500 font-semibold uppercase tracking-wide">
+                    {language === 'vi' ? 'Token hồi sau' : 'Resets in'}
+                  </p>
+                  <p className="text-[11px] font-extrabold text-amber-800 dark:text-amber-200">
+                    {formatCountdown(quotaStatus.msRemaining)}
+                  </p>
+                </div>
+              </div>
+              {quotaStatus.resetAt && (
+                <p className="text-[9px] text-amber-600 dark:text-amber-500 text-center">
+                  {language === 'vi' ? 'Reset lúc ' : 'Resets at '}
+                  {quotaStatus.resetAt.toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', {
+                    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh'
+                  })}
+                  {language === 'vi' ? ' giờ VN' : ' VN time'}
+                </p>
+              )}
+            </div>
+          )}
+
         </div>
       </aside>
 
