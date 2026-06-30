@@ -7,6 +7,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { AuthContext } from '../context/AuthContext';
 import { SocketContext } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
+import { markQuotaExhausted } from '../utils/quotaUtils';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
@@ -26,17 +27,17 @@ const DocumentDetail = () => {
 
   const parseSummaryContent = (summaryText) => {
     if (!summaryText) return { metadata: null, cleanSummary: '' };
-    
+
     const delimiter = '=========================================';
     if (summaryText.includes(delimiter)) {
       const parts = summaryText.split(delimiter);
       if (parts.length >= 3) {
         const metadataText = parts[1];
         const cleanSummary = parts.slice(2).join(delimiter).trim();
-        
+
         let expiry = null;
         let details = null;
-        
+
         const lines = metadataText.split('\n');
         lines.forEach(line => {
           if (line.includes('📅 Hạn hợp đồng / Hạn hiệu lực:')) {
@@ -45,14 +46,14 @@ const DocumentDetail = () => {
             details = line.replace('🔑 Chi tiết chính:', '').trim();
           }
         });
-        
+
         return {
           metadata: { expiry, details },
           cleanSummary
         };
       }
     }
-    
+
     return { metadata: null, cleanSummary: summaryText };
   };
   const [doc, setDoc] = useState(null);
@@ -69,6 +70,7 @@ const DocumentDetail = () => {
 
   // Proposal 2: AI Flashcards state
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+  const [flashcardError, setFlashcardError] = useState(null); // null | 'quota' | 'other'
 
   // Proposal 3: Document Comments states
   const { socket } = useContext(SocketContext);
@@ -91,6 +93,7 @@ const DocumentDetail = () => {
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatQuotaError, setChatQuotaError] = useState(false);
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
@@ -120,19 +123,84 @@ const DocumentDetail = () => {
     fetchDocAndRelated();
   }, [id]);
 
+  const isQuotaError = (msg) => {
+    const hit = msg && (msg.includes('Quota') || msg.includes('quota') || msg.includes('Hết lượt') || msg.includes('429'));
+    if (hit) markQuotaExhausted();
+    return hit;
+  };
+
   const handleGenerateFlashcards = async () => {
     if (generatingFlashcards) return;
+    setFlashcardError(null);
     setGeneratingFlashcards(true);
-    const toastId = toast.loading("AI đang tự động sinh bộ thẻ Flashcards...");
+    const toastId = toast.loading('AI đang tự động sinh bộ thẻ Flashcards...');
     try {
-      await API.post('/flashcards/generate', { documentId: id, count: 8 });
-      // Refresh user profile/credits on success
+      const res = await API.post('/flashcards/generate', { documentId: id, count: 8 });
+
+      // Async mode: job enqueued — poll status
+      if (res.status === 202 && res.data.jobId) {
+        const jobId = res.data.jobId;
+        toast.loading('AI đang xử lý Flashcards trong nền...', { id: toastId });
+
+        // Poll every 2.5 seconds
+        const poll = setInterval(async () => {
+          try {
+            const statusRes = await API.get(`/jobs/${jobId}/status`);
+            const { status, progress } = statusRes.data;
+            if (status === 'active') {
+              toast.loading(`Đang tạo Flashcards... ${progress || 0}%`, { id: toastId });
+            }
+            if (status === 'completed') {
+              clearInterval(poll);
+              refreshProfile();
+              toast.success('Tạo bộ Flashcards thành công!', { id: toastId });
+              navigate('/flashcards');
+              setGeneratingFlashcards(false);
+            }
+            if (status === 'failed') {
+              clearInterval(poll);
+              const errMsg = statusRes.data.error || 'Không thể tạo bộ Flashcards.';
+              if (isQuotaError(errMsg)) {
+                setFlashcardError('quota');
+                toast.dismiss(toastId);
+              } else {
+                toast.error(errMsg, { id: toastId });
+              }
+              setGeneratingFlashcards(false);
+            }
+          } catch {
+            clearInterval(poll);
+            toast.error('Lỗi kiểm tra trạng thái tạo Flashcards.', { id: toastId });
+            setGeneratingFlashcards(false);
+          }
+        }, 2500);
+
+        // Safety timeout: 3 minutes
+        setTimeout(() => {
+          clearInterval(poll);
+          if (generatingFlashcards) {
+            toast.error('Quá thời gian chờ. Vui lòng thử lại.', { id: toastId });
+            setGeneratingFlashcards(false);
+          }
+        }, 180000);
+        return;
+      }
+
+      // Sync mode fallback (no Redis)
       refreshProfile();
-      toast.success("Tạo bộ Flashcards thành công!", { id: toastId });
+      toast.success('Tạo bộ Flashcards thành công!', { id: toastId });
       navigate('/flashcards');
     } catch (err) {
-      toast.error(err.response?.data?.error || "Không thể khởi tạo bộ flashcard AI lúc này.", { id: toastId });
+      const errMsg = err.response?.data?.error || 'Không thể khởi tạo bộ flashcard AI lúc này.';
+      if (isQuotaError(errMsg)) {
+        setFlashcardError('quota');
+        toast.dismiss(toastId);
+      } else {
+        toast.error(errMsg, { id: toastId });
+      }
     } finally {
+      // Only set false in sync mode; async mode handles it above
+      if (!generatingFlashcards) return;
       setGeneratingFlashcards(false);
     }
   };
@@ -301,7 +369,13 @@ const DocumentDetail = () => {
       setEditSummary(res.data.summary);
       toast.success("✨ AI đã phân tích tài liệu và điền đề xuất thành công!");
     } catch (err) {
-      toast.error("Không thể sử dụng AI để phân tích tại thời điểm này.");
+      const errMsg = err.response?.data?.error || '';
+      if (isQuotaError(errMsg)) {
+        setChatQuotaError(true);
+        toast.error(language === 'vi' ? '⚡ Hết lượt AI hôm nay. Thử lại sau 2:00 chiều giờ VN.' : '⚡ Daily AI quota exceeded. Try again after reset.');
+      } else {
+        toast.error("Không thể sử dụng AI để phân tích tại thời điểm này.");
+      }
     } finally {
       setAiLoading(false);
     }
@@ -313,6 +387,7 @@ const DocumentDetail = () => {
     setChatMessages(prev => [...prev, { role: 'user', text: textToSend.trim() }]);
     if (!directText) setChatInput('');
     setChatLoading(true);
+    setChatQuotaError(false);
 
     try {
       const res = await API.post('/ai/qna', { documentId: id, question: textToSend.trim() });
@@ -320,7 +395,12 @@ const DocumentDetail = () => {
       refreshProfile();
       setChatMessages(prev => [...prev, { role: 'ai', text: res.data.answer }]);
     } catch (err) {
-      setChatMessages(prev => [...prev, { role: 'ai', text: language === 'vi' ? 'Rất tiếc, hệ thống gặp sự cố khi xử lý dữ liệu AI. Vui lòng thử lại sau.' : 'Sorry, the system encountered an error processing AI data. Please try again later.' }]);
+      const errMsg = err.response?.data?.error || '';
+      if (isQuotaError(errMsg)) {
+        setChatQuotaError(true);
+      } else {
+        setChatMessages(prev => [...prev, { role: 'ai', text: language === 'vi' ? 'Rất tiếc, hệ thống gặp sự cố khi xử lý dữ liệu AI. Vui lòng thử lại sau.' : 'Sorry, the system encountered an error processing AI data. Please try again later.' }]);
+      }
     } finally {
       setChatLoading(false);
     }
@@ -331,7 +411,7 @@ const DocumentDetail = () => {
       name: language === 'vi' ? 'Tóm tắt sâu' : 'Deep Summary',
       icon: Sparkles,
       color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
-      prompt: language === 'vi' 
+      prompt: language === 'vi'
         ? 'Hãy phân tích và tóm tắt sâu sắc tài liệu này, làm rõ: Bối cảnh ra đời, Nội dung cốt lõi chi tiết và Ý nghĩa thực tiễn.'
         : 'Please analyze and summarize this document deeply, clarifying: background, detailed core content, and practical significance.'
     },
@@ -407,7 +487,7 @@ const DocumentDetail = () => {
               className="bg-[#52B788] hover:bg-[#409c71] disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-sm font-semibold transition shadow-sm flex items-center space-x-1 cursor-pointer"
             >
               {aiLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-              <span>{language === 'vi' ? '✨ AI tự động điền' : '✨ AI Auto-fill'}</span>
+              <span>{language === 'vi' ? 'AI tự động điền' : 'AI Auto-fill'}</span>
             </button>
             <button
               onClick={handleSave}
@@ -530,7 +610,7 @@ const DocumentDetail = () => {
                           </div>
                         </div>
                       )}
-                      
+
                       <h2 className="text-lg font-bold text-text-primary mb-4">{language === 'vi' ? 'Tóm tắt nội dung' : 'Content Summary'}</h2>
                       <div
                         onMouseUp={handleTextSelection}
@@ -555,7 +635,7 @@ const DocumentDetail = () => {
                         <div key={ann.id} style={{ borderLeftColor: ann.color || '#ffeb3b' }} className="border-l-4 bg-background dark:bg-slate-900 border border-border rounded-xl p-3 flex justify-between items-start gap-4">
                           <div className="space-y-1">
                             <p className="text-xs font-semibold text-text-primary bg-primary/5 p-1.5 rounded-lg italic">"{ann.selected_text}"</p>
-                            {ann.note && <p className="text-xs text-text-secondary font-medium">📝 {language === 'vi' ? 'Ghi chú' : 'Note'}: {ann.note}</p>}
+                            {ann.note && <p className="text-xs text-text-secondary font-medium">{language === 'vi' ? 'Ghi chú' : 'Note'}: {ann.note}</p>}
                           </div>
                           <button
                             onClick={() => handleDeleteAnnotation(ann.id)}
@@ -598,6 +678,28 @@ const DocumentDetail = () => {
                           <span>{language === 'vi' ? 'Tạo flashcards' : 'Create flashcards'}</span>
                         )}
                       </button>
+
+                      {/* Quota error banner */}
+                      {flashcardError === 'quota' && (
+                        <div className="mt-4 flex items-start gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl p-4">
+                          <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-amber-800 dark:text-amber-300">
+                              {language === 'vi' ? `⚡ Hết lượt AI ${user?.is_pro ? '' : 'miễn phí'} hôm nay` : `⚡ Daily AI ${user?.is_pro ? '' : 'free'} quota exceeded`}
+                            </p>
+                            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                              {language === 'vi'
+                                ? `Hệ thống đã đạt giới hạn ${user?.is_pro ? '100' : '20'} yêu cầu/ngày. Quota sẽ reset lúc 7:00 sáng UTC (2:00 chiều giờ VN). Vui lòng thử lại sau.`
+                                : `System has reached the ${user?.is_pro ? '100' : '20'} requests/day limit. Quota resets at 7:00 AM UTC. Please try again later.`}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setFlashcardError(null)}
+                            className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 flex-shrink-0 cursor-pointer text-lg leading-none"
+                            title="Đóng"
+                          >✕</button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -710,6 +812,24 @@ const DocumentDetail = () => {
                   )}
                 </div>
 
+                {/* Quota Error Banner */}
+                {chatQuotaError && (
+                  <div className="mb-3 shrink-0 flex items-start gap-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 rounded-xl p-3">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs text-amber-800 dark:text-amber-300">
+                        {language === 'vi' ? `⚡ Hết lượt AI ${user?.is_pro ? '' : 'miễn phí'} hôm nay` : `⚡ Daily AI ${user?.is_pro ? '' : 'free'} quota exceeded`}
+                      </p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5 leading-relaxed">
+                        {language === 'vi'
+                          ? `Hệ thống đạt giới hạn ${user?.is_pro ? '100' : '20'} yêu cầu/ngày. Quota reset lúc 2:00 chiều giờ VN. Vui lòng thử lại sau.`
+                          : `System reached the ${user?.is_pro ? '100' : '20'} req/day limit. Quota resets at 7:00 AM UTC. Please try again later.`}
+                      </p>
+                    </div>
+                    <button onClick={() => setChatQuotaError(false)} className="text-amber-400 hover:text-amber-600 flex-shrink-0 cursor-pointer text-base leading-none">✕</button>
+                  </div>
+                )}
+
                 {/* Chat Input Field */}
                 <div className="border-t border-border pt-4 shrink-0">
                   <div className="flex space-x-2">
@@ -791,8 +911,8 @@ const DocumentDetail = () => {
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={handleConfirmDelete}
         title={language === 'vi' ? "Xóa tài liệu này?" : "Delete this document?"}
-        message={language === 'vi' 
-          ? "Hành động này sẽ xóa vĩnh viễn cấu trúc dữ liệu và gỡ bỏ toàn bộ liên kết đồ thị tri thức của tài liệu này ra khỏi hệ thống." 
+        message={language === 'vi'
+          ? "Hành động này sẽ xóa vĩnh viễn cấu trúc dữ liệu và gỡ bỏ toàn bộ liên kết đồ thị tri thức của tài liệu này ra khỏi hệ thống."
           : "This action will permanently delete this document and remove all its knowledge graph connections from the system."
         }
       />
