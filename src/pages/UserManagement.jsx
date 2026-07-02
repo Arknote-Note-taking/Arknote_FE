@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { Users, Trash2, Loader2, ShieldAlert, RotateCcw, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, Trash2, Loader2, ShieldAlert, RotateCcw, HelpCircle, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
+import OnboardingDetailsModal from '../components/OnboardingDetailsModal';
 import { useLanguage } from '../context/LanguageContext';
 
 const USER_PAGE_SIZE = 10;
@@ -69,6 +70,10 @@ const UserManagement = () => {
   // Soft deleted users states
   const [deletedUsers, setDeletedUsers] = useState([]);
   const [deletedUsersLoading, setDeletedUsersLoading] = useState(false);
+
+  // Onboarding answers states
+  const [selectedOnboardingUser, setSelectedOnboardingUser] = useState(null);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
   const triggerConfirm = (title, message, confirmText, onConfirm) => {
     setConfirmData({
@@ -243,6 +248,7 @@ const UserManagement = () => {
                   <th className="px-6 py-4">{language === 'vi' ? 'Tên' : 'Name'}</th>
                   <th className="px-6 py-4">Email</th>
                   <th className="px-6 py-4">{language === 'vi' ? 'Vai trò' : 'Role'}</th>
+                  <th className="px-6 py-4">{language === 'vi' ? 'Khảo sát' : 'Onboarding'}</th>
                   <th className="px-6 py-4 text-right">{language === 'vi' ? 'Hành động' : 'Actions'}</th>
                 </tr>
               </thead>
@@ -258,6 +264,51 @@ const UserManagement = () => {
                         }`}>
                         {u.role}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {u.onboarding_completed ? (
+                        <div className="flex items-center space-x-2">
+                          {u.onboarding_answers ? (
+                            <>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#D1FAE5] text-[#065F46] dark:bg-[#065F46]/15 dark:text-[#34D399]">
+                                {language === 'vi' ? 'Đã khảo sát' : 'Surveyed'}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setSelectedOnboardingUser(u);
+                                  setIsOnboardingOpen(true);
+                                }}
+                                className="flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-primary hover:text-primary-dark hover:bg-primary/5 rounded-lg border border-primary/20 dark:border-primary/30 transition-all cursor-pointer"
+                                title={language === 'vi' ? 'Xem câu trả lời' : 'View answers'}
+                              >
+                                <ClipboardList className="w-3.5 h-3.5" />
+                                <span>{language === 'vi' ? 'Xem' : 'View'}</span>
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                {language === 'vi' ? 'Bỏ qua' : 'Skipped'}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setSelectedOnboardingUser(u);
+                                  setIsOnboardingOpen(true);
+                                }}
+                                className="flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 rounded-lg border border-border transition-all cursor-pointer"
+                                title={language === 'vi' ? 'Chi tiết' : 'Details'}
+                              >
+                                <ClipboardList className="w-3.5 h-3.5" />
+                                <span>{language === 'vi' ? 'Xem' : 'View'}</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEE2E2] text-[#991B1B] dark:bg-[#991B1B]/15 dark:text-[#F87171]">
+                          {language === 'vi' ? 'Chưa hoàn thành' : 'Not Completed'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
@@ -317,6 +368,7 @@ const UserManagement = () => {
                       <th className="px-6 py-4">{language === 'vi' ? 'Tên' : 'Name'}</th>
                       <th className="px-6 py-4">Email</th>
                       <th className="px-6 py-4">{language === 'vi' ? 'Vai trò' : 'Role'}</th>
+                      <th className="px-6 py-4">{language === 'vi' ? 'Khảo sát' : 'Onboarding'}</th>
                       <th className="px-6 py-4 text-right">{language === 'vi' ? 'Hành động' : 'Actions'}</th>
                     </tr>
                   </thead>
@@ -341,6 +393,51 @@ const UserManagement = () => {
                             }`}>
                             {u.role}
                           </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {u.onboarding_completed ? (
+                            <div className="flex items-center space-x-2">
+                              {u.onboarding_answers ? (
+                                <>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#D1FAE5] text-[#065F46] dark:bg-[#065F46]/15 dark:text-[#34D399]">
+                                    {language === 'vi' ? 'Đã khảo sát' : 'Surveyed'}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedOnboardingUser(u);
+                                      setIsOnboardingOpen(true);
+                                    }}
+                                    className="flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-primary hover:text-primary-dark hover:bg-primary/5 rounded-lg border border-primary/20 dark:border-primary/30 transition-all cursor-pointer"
+                                    title={language === 'vi' ? 'Xem câu trả lời' : 'View answers'}
+                                  >
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    <span>{language === 'vi' ? 'Xem' : 'View'}</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                                    {language === 'vi' ? 'Bỏ qua' : 'Skipped'}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setSelectedOnboardingUser(u);
+                                      setIsOnboardingOpen(true);
+                                    }}
+                                    className="flex items-center space-x-1 px-2 py-1 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 rounded-lg border border-border transition-all cursor-pointer"
+                                    title={language === 'vi' ? 'Chi tiết' : 'Details'}
+                                  >
+                                    <ClipboardList className="w-3.5 h-3.5" />
+                                    <span>{language === 'vi' ? 'Xem' : 'View'}</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#FEE2E2] text-[#991B1B] dark:bg-[#991B1B]/15 dark:text-[#F87171]">
+                              {language === 'vi' ? 'Chưa hoàn thành' : 'Not Completed'}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
@@ -404,6 +501,15 @@ const UserManagement = () => {
         title={confirmData.title}
         message={confirmData.message}
         confirmText={confirmData.confirmText === 'Xác nhận' ? (language === 'vi' ? 'Xác nhận' : 'Confirm') : confirmData.confirmText}
+      />
+
+      <OnboardingDetailsModal
+        isOpen={isOnboardingOpen}
+        onClose={() => {
+          setIsOnboardingOpen(false);
+          setSelectedOnboardingUser(null);
+        }}
+        user={selectedOnboardingUser}
       />
     </div>
   );

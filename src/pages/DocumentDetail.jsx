@@ -72,6 +72,10 @@ const DocumentDetail = () => {
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
   const [flashcardError, setFlashcardError] = useState(null); // null | 'quota' | 'other'
 
+  // Deduplication state variables
+  const [showDeduplicateChoiceModal, setShowDeduplicateChoiceModal] = useState(false);
+  const [deduplicateWarning, setDeduplicateWarning] = useState(false);
+
   // Proposal 3: Document Comments states
   const { socket } = useContext(SocketContext);
   const [activeTab, setActiveTab] = useState('ai');
@@ -129,13 +133,27 @@ const DocumentDetail = () => {
     return hit;
   };
 
-  const handleGenerateFlashcards = async () => {
+  const handleGenerateFlashcards = async (params = {}) => {
     if (generatingFlashcards) return;
     setFlashcardError(null);
     setGeneratingFlashcards(true);
     const toastId = toast.loading('AI đang tự động sinh bộ thẻ Flashcards...');
     try {
-      const res = await API.post('/flashcards/generate', { documentId: id, count: 8 });
+      const res = await API.post('/flashcards/generate', {
+        documentId: id,
+        count: 8,
+        forceRegenerate: params.forceRegenerate,
+        ignoreHashCheck: params.ignoreHashCheck,
+        mode: params.mode
+      });
+
+      if (res.data && res.data.status === 'confirm_mode') {
+        toast.dismiss(toastId);
+        setGeneratingFlashcards(false);
+        setDeduplicateWarning(false);
+        setShowDeduplicateChoiceModal(true);
+        return;
+      }
 
       // Async mode: job enqueued — poll status
       if (res.status === 202 && res.data.jobId) {
@@ -191,6 +209,14 @@ const DocumentDetail = () => {
       toast.success('Tạo bộ Flashcards thành công!', { id: toastId });
       navigate('/flashcards');
     } catch (err) {
+      const errRes = err.response?.data;
+      if (errRes && errRes.error === 'content_not_changed') {
+        toast.dismiss(toastId);
+        setGeneratingFlashcards(false);
+        setDeduplicateWarning(true);
+        setShowDeduplicateChoiceModal(true);
+        return;
+      }
       const errMsg = err.response?.data?.error || 'Không thể khởi tạo bộ flashcard AI lúc này.';
       if (isQuotaError(errMsg)) {
         setFlashcardError('quota');
@@ -953,6 +979,83 @@ const DocumentDetail = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Deduplication Choice and Warning Modal */}
+      {showDeduplicateChoiceModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[300]">
+          <div className="bg-surface border border-border w-full max-w-md p-6 rounded-xl shadow-xl space-y-4">
+            <h3 className="text-base font-bold text-text-primary flex items-center space-x-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              <span>{language === 'vi' ? 'Tạo Flashcards Thông Minh' : 'Create Smart Flashcards'}</span>
+            </h3>
+            
+            {deduplicateWarning ? (
+              <div className="space-y-4">
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {language === 'vi'
+                    ? 'Tài liệu này không có thay đổi nội dung mới nào kể từ lần tạo bộ thẻ trước. Bạn có chắc chắn muốn tiếp tục tạo lại không?'
+                    : 'This document content has not changed since the last card deck generation. Are you sure you want to regenerate?'
+                  }
+                </p>
+                <div className="flex space-x-3 pt-2">
+                  <button
+                    onClick={() => setShowDeduplicateChoiceModal(false)}
+                    className="flex-1 py-2 border border-border text-text-secondary rounded-xl text-xs font-semibold cursor-pointer hover:bg-black/5 transition"
+                  >
+                    {language === 'vi' ? 'Hủy bỏ' : 'Cancel'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setDeduplicateWarning(false);
+                    }}
+                    className="flex-1 py-2 bg-primary text-white rounded-xl text-xs font-semibold cursor-pointer hover:bg-primary-dark transition"
+                  >
+                    {language === 'vi' ? 'Tiếp tục' : 'Continue'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {language === 'vi'
+                    ? 'Phát hiện bộ thẻ Flashcard của tài liệu này đã tồn tại trong hệ thống. Vui lòng chọn cách tạo:'
+                    : 'A flashcard deck for this document already exists. Please choose a generation mode:'
+                  }
+                </p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setShowDeduplicateChoiceModal(false);
+                      handleGenerateFlashcards({ forceRegenerate: true, ignoreHashCheck: true, mode: 'overwrite' });
+                    }}
+                    className="w-full text-left p-3 rounded-lg border border-border bg-black/5 dark:bg-white/5 hover:border-primary transition cursor-pointer flex flex-col"
+                  >
+                    <span className="text-xs font-bold text-text-primary">{language === 'vi' ? 'Ghi đè (Overwrite)' : 'Overwrite'}</span>
+                    <span className="text-[10px] text-text-secondary mt-0.5">{language === 'vi' ? 'Xóa hoàn toàn bộ thẻ cũ và tạo mới lại từ đầu.' : 'Completely erase the old deck and generate a new one.'}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDeduplicateChoiceModal(false);
+                      handleGenerateFlashcards({ forceRegenerate: true, ignoreHashCheck: true, mode: 'merge' });
+                    }}
+                    className="w-full text-left p-3 rounded-lg border border-border bg-black/5 dark:bg-white/5 hover:border-[#52B788] transition cursor-pointer flex flex-col"
+                  >
+                    <span className="text-xs font-bold text-text-primary">{language === 'vi' ? 'Gộp thêm (Merge)' : 'Merge'}</span>
+                    <span className="text-[10px] text-text-secondary mt-0.5">{language === 'vi' ? 'Giữ lại thẻ cũ và chỉ chèn thêm các thẻ mới không bị trùng.' : 'Keep old cards and insert new unique cards.'}</span>
+                  </button>
+                </div>
+                <div className="flex pt-2">
+                  <button
+                    onClick={() => setShowDeduplicateChoiceModal(false)}
+                    className="w-full py-2 border border-border text-text-secondary rounded-xl text-xs font-semibold cursor-pointer hover:bg-black/5 transition"
+                  >
+                    {language === 'vi' ? 'Đóng' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
