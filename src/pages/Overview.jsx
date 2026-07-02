@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import API from '../services/api';
 import { FileText, Layers, Award, Loader2, Play, PlusCircle, Network, ArrowRight, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { AuthContext } from '../context/AuthContext';
 
 const getTagColor = (subject) => {
   const s = subject?.toLowerCase?.() || '';
@@ -15,6 +16,7 @@ const getTagColor = (subject) => {
 
 const Overview = () => {
   const { language, t } = useLanguage();
+  const { user } = useContext(AuthContext);
   const [stats, setStats] = useState(null);
   const [deckCount, setDeckCount] = useState(0);
   const [quizCount, setQuizCount] = useState(0);
@@ -173,11 +175,17 @@ const Overview = () => {
                 >
                   <div className="min-w-0 pr-4 flex-1">
                     <p className="font-bold text-text-primary truncate">{quizTitle}</p>
-                    <p className="text-text-secondary text-[10px] mt-0.5 flex items-center space-x-2">
+                    <p className="text-text-secondary text-[10px] mt-0.5 flex items-center space-x-2 flex-wrap gap-y-1">
                       <Clock className="w-3 h-3 text-text-secondary/60" />
                       <span>{formatDuration(att.time_spent)}</span>
                       <span>•</span>
                       <span>{new Date(att.completed_at || att.created_at).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
+                      {user?.role === 'admin' && att.user && (
+                        <>
+                          <span>•</span>
+                          <span className="text-primary font-bold">{att.user.name || att.user.email}</span>
+                        </>
+                      )}
                     </p>
                   </div>
                   

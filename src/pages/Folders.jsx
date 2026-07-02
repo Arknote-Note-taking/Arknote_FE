@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
-import { Folder, FolderPlus, Trash2, FileText, Send, Loader2, MessageSquare, ArrowLeft, Plus, Edit2, X } from 'lucide-react';
+import { Folder, FolderPlus, Trash2, FileText, Send, Loader2, MessageSquare, ArrowLeft, Plus, Edit2, X, Globe, FolderOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DocumentSelectModal from '../components/DocumentSelectModal';
 import { useConfirm } from '../context/ConfirmContext';
+import { useLanguage } from '../context/LanguageContext';
 
 const Folders = () => {
   const navigate = useNavigate();
   const { confirm } = useConfirm();
+  const { language } = useLanguage();
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newFolderName, setNewFolderName] = useState('');
@@ -496,7 +498,7 @@ const Folders = () => {
       </form>
 
       {/* Folder Grids */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {folders.map(f => (
           <div
             key={f.id}
@@ -504,62 +506,86 @@ const Folders = () => {
               if (editingFolderId === f.id) return;
               handleSelectFolder(f);
             }}
-            className="bg-surface border border-border hover:border-primary/40 rounded-xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
+            className="bg-surface border border-border rounded-xl p-5 hover:border-primary/45 cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group h-44"
           >
-            <div className="flex justify-between items-start">
-              <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform duration-200">
-                <Folder className="w-6 h-6" />
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  {editingFolderId === f.id ? (
+                    <form
+                      onSubmit={(e) => handleRenameFolderInList(e, f.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center space-x-2 w-full mt-2"
+                    >
+                      <input
+                        type="text"
+                        value={editFolderName}
+                        onChange={(e) => setEditFolderName(e.target.value)}
+                        className="bg-background border border-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-primary text-text-primary font-bold flex-1 min-w-0"
+                        autoFocus
+                      />
+                      <button type="submit" className="text-primary hover:text-primary-dark font-bold text-xs shrink-0">Lưu</button>
+                      <button type="button" onClick={() => setEditingFolderId(null)} className="text-text-secondary hover:text-text-primary text-xs shrink-0"><X className="w-4 h-4" /></button>
+                    </form>
+                  ) : (
+                    <>
+                      <h3 className="font-bold text-text-primary text-base group-hover:text-primary transition-colors line-clamp-1 flex-1" title={f.name}>
+                        {f.name}
+                      </h3>
+                      {f.is_shared && (
+                        <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" title={language === 'vi' ? "Đang chia sẻ" : "Shared"} />
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {editingFolderId !== f.id && (
+                  <div className="flex items-center space-x-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingFolderId(f.id);
+                        setEditFolderName(f.name);
+                      }}
+                      className="p-1 rounded text-text-secondary hover:text-primary hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+                      title={language === 'vi' ? "Đổi tên thư mục" : "Rename folder"}
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
+                      className="p-1 rounded text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer"
+                      title={language === 'vi' ? "Xóa thư mục" : "Delete folder"}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingFolderId(f.id);
-                    setEditFolderName(f.name);
-                  }}
-                  className="text-text-secondary hover:text-primary p-1 cursor-pointer"
-                  title="Đổi tên thư mục"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                  className="text-text-secondary hover:text-red-500 p-1 cursor-pointer"
-                  title="Xóa thư mục"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              {editingFolderId === f.id ? (
-                <form
-                  onSubmit={(e) => handleRenameFolderInList(e, f.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center space-x-2 w-full mt-2"
-                >
-                  <input
-                    type="text"
-                    value={editFolderName}
-                    onChange={(e) => setEditFolderName(e.target.value)}
-                    className="bg-background border border-border rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-primary text-text-primary font-bold flex-1 min-w-0"
-                    autoFocus
-                  />
-                  <button type="submit" className="text-primary hover:text-primary-dark font-bold text-xs shrink-0">Lưu</button>
-                  <button type="button" onClick={() => setEditingFolderId(null)} className="text-text-secondary hover:text-text-primary text-xs shrink-0"><X className="w-4 h-4" /></button>
-                </form>
-              ) : (
-                <>
-                  <h3 className="font-extrabold text-text-primary text-base truncate mb-1">{f.name}</h3>
-                  <p className="text-xs text-text-secondary">{f.docCount || 0} tài liệu bên trong</p>
-                </>
+              {editingFolderId !== f.id && (
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                  {language === 'vi' ? 'Thư mục cá nhân dùng để lưu trữ và gom nhóm tài liệu.' : 'Personal folder for storing and grouping documents.'}
+                </p>
               )}
             </div>
 
-            {/* Subtle background glow on hover */}
-            <div className="absolute right-0 bottom-0 w-24 h-24 bg-primary/5 rounded-full translate-x-8 translate-y-8 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            {editingFolderId !== f.id && (
+              <div className="border-t border-border/60 pt-3 flex items-center justify-between text-xs text-text-secondary">
+                <div className="flex items-center space-x-2 truncate max-w-[70%]">
+                  <span className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full shrink-0">
+                    {language === 'vi' ? 'Thư mục' : 'Folder'}
+                  </span>
+                  <span className="truncate">
+                    {language === 'vi' ? `${f.docCount || 0} tài liệu` : `${f.docCount || 0} documents`}
+                  </span>
+                </div>
+                <span className="ml-auto font-semibold flex items-center space-x-1 shrink-0 text-primary group-hover:underline">
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>{language === 'vi' ? 'Mở' : 'Open'}</span>
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>

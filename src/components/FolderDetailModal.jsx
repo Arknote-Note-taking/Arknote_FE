@@ -350,33 +350,35 @@ const FolderDetailModal = ({ isOpen, onClose, folderId, onFolderDeleted }) => {
                 )}
               </div>
 
-              <div className="flex items-center space-x-2 shrink-0">
-                {folder.user_id === user?.id && (
+              {!isEditingName && (
+                <div className="flex items-center space-x-2 shrink-0">
+                  {folder.user_id === user?.id && (
+                    <button
+                      onClick={() => setShowShareSection(!showShareSection)}
+                      className="flex items-center space-x-1 bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>{language === 'vi' ? 'Chia sẻ' : 'Share'}</span>
+                    </button>
+                  )}
                   <button
-                    onClick={() => setShowShareSection(!showShareSection)}
-                    className="flex items-center space-x-1 bg-primary hover:bg-primary-dark text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
+                    onClick={handleOpenAddDocModal}
+                    className="flex items-center space-x-1 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
                   >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>{language === 'vi' ? 'Chia sẻ' : 'Share'}</span>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{language === 'vi' ? 'Thêm tài liệu' : 'Add document'}</span>
                   </button>
-                )}
-                <button
-                  onClick={handleOpenAddDocModal}
-                  className="flex items-center space-x-1 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{language === 'vi' ? 'Thêm tài liệu' : 'Add document'}</span>
-                </button>
-                {folder.user_id === user?.id && (
-                  <button
-                    onClick={handleDeleteFolder}
-                    className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{language === 'vi' ? 'Xóa thư mục' : 'Delete folder'}</span>
-                  </button>
-                )}
-              </div>
+                  {folder.user_id === user?.id && (
+                    <button
+                      onClick={handleDeleteFolder}
+                      className="flex items-center space-x-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{language === 'vi' ? 'Xóa thư mục' : 'Delete folder'}</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Sharing UI Section */}

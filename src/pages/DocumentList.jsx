@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import API from '../services/api';
 import { SocketContext } from '../context/SocketContext';
-import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap, Pin, Loader2, Calendar } from 'lucide-react';
+import { Search, Trash2, Plus, Folder, FolderPlus, FolderOpen, FileText, Edit2, RotateCcw, Zap, Pin, Loader2, Calendar, Globe } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -129,8 +129,8 @@ const DocumentList = () => {
   const handleRestoreDoc = (docId, docTitle) => {
     triggerConfirm(
       language === 'vi' ? 'Khôi phục tài liệu?' : 'Restore document?',
-      language === 'vi' 
-        ? `Bạn có chắc chắn muốn khôi phục tài liệu "${docTitle || 'này'}"? Tài liệu này sẽ hoạt động trở lại bình thường đối với người sở hữu.` 
+      language === 'vi'
+        ? `Bạn có chắc chắn muốn khôi phục tài liệu "${docTitle || 'này'}"? Tài liệu này sẽ hoạt động trở lại bình thường đối với người sở hữu.`
         : `Are you sure you want to restore the document "${docTitle || 'this'}"? This document will be active again for its owner.`,
       language === 'vi' ? 'Khôi phục ngay' : 'Restore now',
       async () => {
@@ -149,8 +149,8 @@ const DocumentList = () => {
   const handleRequestRestoreDoc = (docId, docTitle) => {
     triggerConfirm(
       language === 'vi' ? 'Yêu cầu khôi phục tài liệu?' : 'Request document restoration?',
-      language === 'vi' 
-        ? `Bạn có chắc chắn muốn gửi yêu cầu khôi phục tài liệu "${docTitle || 'này'}" tới Admin không?` 
+      language === 'vi'
+        ? `Bạn có chắc chắn muốn gửi yêu cầu khôi phục tài liệu "${docTitle || 'này'}" tới Admin không?`
         : `Are you sure you want to send a document restoration request for "${docTitle || 'this'}" to the Admin?`,
       language === 'vi' ? 'Gửi yêu cầu' : 'Send request',
       async () => {
@@ -169,8 +169,8 @@ const DocumentList = () => {
     try {
       await API.put(`/documents/${docId}`, { is_pinned: !isPinned });
       toast.success(
-        language === 'vi' 
-          ? (isPinned ? 'Đã bỏ ghim tài liệu!' : 'Đã ghim tài liệu lên đầu!') 
+        language === 'vi'
+          ? (isPinned ? 'Đã bỏ ghim tài liệu!' : 'Đã ghim tài liệu lên đầu!')
           : (isPinned ? 'Document unpinned!' : 'Document pinned to top!')
       );
       setDocuments(prev => prev.map(d => d.id === docId ? { ...d, is_pinned: !isPinned } : d));
@@ -345,8 +345,8 @@ const DocumentList = () => {
     if (selectedDocIds.length === 0) return;
     triggerConfirm(
       language === 'vi' ? `Xóa ${selectedDocIds.length} tài liệu đã chọn?` : `Delete ${selectedDocIds.length} selected documents?`,
-      language === 'vi' 
-        ? `Các tài liệu bị xóa sẽ được đưa vào thùng rác hệ thống và có thể khôi phục lại bởi Admin.` 
+      language === 'vi'
+        ? `Các tài liệu bị xóa sẽ được đưa vào thùng rác hệ thống và có thể khôi phục lại bởi Admin.`
         : `Deleted documents will be moved to the trash and can be restored by the Admin.`,
       language === 'vi' ? `Xác nhận xóa (${selectedDocIds.length})` : `Confirm delete (${selectedDocIds.length})`,
       async () => {
@@ -526,8 +526,8 @@ const DocumentList = () => {
           <div className="flex items-center space-x-2">
             <Trash2 className="w-4 h-4" />
             <span>
-              {user?.role === 'admin' 
-                ? (language === 'vi' ? `Tài liệu đã xóa (${deletedDocs.length})` : `Deleted Documents (${deletedDocs.length})`) 
+              {user?.role === 'admin'
+                ? (language === 'vi' ? `Tài liệu đã xóa (${deletedDocs.length})` : `Deleted Documents (${deletedDocs.length})`)
                 : (language === 'vi' ? `Yêu cầu khôi phục (${deletedDocs.length})` : `Restore Requests (${deletedDocs.length})`)
               }
             </span>
@@ -535,8 +535,8 @@ const DocumentList = () => {
         </button>
       </div>
 
-      {/* 2.5. Upload Limit Indicator for Non-Pro Users */}
-      {user?.role !== 'admin' && !user?.is_pro && (
+      {/* 2.5. Upload Limit Indicator */}
+      {user?.role !== 'admin' && (
         <div className="bg-amber-500/15 border border-amber-500/25 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 relative overflow-hidden">
           <div className="flex items-center space-x-3">
             <span className="p-2 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -547,33 +547,47 @@ const DocumentList = () => {
                 {language === 'vi' ? 'Giới hạn tải lên tài liệu' : 'Document Upload Limit'}
               </h4>
               <p className="text-xs text-text-secondary mt-0.5">
-                {language === 'vi' 
-                  ? <>Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / 50</strong> tài liệu miễn phí.</> 
-                  : <>You have used <strong className="text-amber-500">{documents.length} / 50</strong> free documents.</>
+                {language === 'vi'
+                  ? <>Bạn đã sử dụng <strong className="text-amber-500">{documents.length} / {user?.is_pro ? 300 : 50}</strong> tài liệu.</>
+                  : <>You have used <strong className="text-amber-500">{documents.length} / {user?.is_pro ? 300 : 50}</strong> documents.</>
                 }
               </p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/#pricing')}
-            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow-md shadow-amber-500/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            {language === 'vi' ? 'Nâng cấp PRO để upload không giới hạn' : 'Upgrade to PRO for unlimited uploads'}
-          </button>
+          {!user?.is_pro && (
+            <button
+              onClick={() => navigate('/#pricing')}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow-md shadow-amber-500/20 whitespace-nowrap cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {language === 'vi' ? 'Nâng cấp PRO để upload 300 tài liệu' : 'Upgrade to PRO to upload 300 documents'}
+            </button>
+          )}
         </div>
       )}
 
       {/* 3. Controls & Action Buttons toolbar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={viewMode === 'documents' ? (language === 'vi' ? "Nhập để tìm tài liệu, thẻ..." : "Type to search documents, tags...") : (language === 'vi' ? "Nhập để tìm thư mục..." : "Type to search folders...")}
-            className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
-          />
+        <div className="flex items-center space-x-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={viewMode === 'documents' ? (language === 'vi' ? "Nhập để tìm tài liệu, thẻ..." : "Type to search documents, tags...") : (language === 'vi' ? "Nhập để tìm thư mục..." : "Type to search folders...")}
+              className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-lg text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+            />
+          </div>
+
+          {viewMode === 'folders' && user?.role !== 'admin' && (
+            <button
+              onClick={() => setIsCreateFolderOpen(true)}
+              className="bg-[#52B788] hover:bg-[#409c71] text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center space-x-1.5 transition shadow-sm cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <FolderPlus className="w-4 h-4" />
+              <span>{language === 'vi' ? 'Tạo thư mục' : 'Create Folder'}</span>
+            </button>
+          )}
         </div>
 
         {viewMode === 'documents' && (
@@ -601,8 +615,8 @@ const DocumentList = () => {
                     onClick={handleSelectAll}
                     className="bg-surface border border-border text-text-secondary hover:text-text-primary px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors"
                   >
-                    {filteredDocs.map(d => d.id).every(id => selectedDocIds.includes(id)) 
-                      ? (language === 'vi' ? 'Bỏ chọn tất cả' : 'Deselect all') 
+                    {filteredDocs.map(d => d.id).every(id => selectedDocIds.includes(id))
+                      ? (language === 'vi' ? 'Bỏ chọn tất cả' : 'Deselect all')
                       : (language === 'vi' ? 'Chọn tất cả' : 'Select all')
                     }
                   </button>
@@ -832,44 +846,57 @@ const DocumentList = () => {
 
       {/* FOLDERS VIEW GRID */}
       {viewMode === 'folders' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredFolders.map(f => (
             <div
               key={f.id}
               onClick={() => handleOpenFolder(f.id)}
-              className="bg-surface border border-border hover:border-primary/45 rounded-xl p-5 hover:shadow-md cursor-pointer transition-all flex flex-col justify-between h-40 group relative overflow-hidden"
+              className="bg-surface border border-border rounded-xl p-5 hover:border-primary/45 cursor-pointer shadow-sm hover:shadow-md transition-all duration-300 flex flex-col justify-between group h-44"
             >
-              <div className="flex justify-between items-start">
-                <div className="bg-primary/10 text-primary p-3 rounded-xl group-hover:scale-105 transition-transform duration-200">
-                  <Folder className="w-6 h-6" />
+              <div className="space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <h3 className="font-bold text-text-primary text-base group-hover:text-primary transition-colors line-clamp-1 flex-1" title={f.name}>
+                      {f.name}
+                    </h3>
+                    {f.is_shared && (
+                      <Globe className="w-3.5 h-3.5 text-emerald-500 shrink-0" title={language === 'vi' ? "Đang chia sẻ" : "Shared"} />
+                    )}
+                  </div>
+
+                  {!f.is_shared && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
+                      className="p-1 rounded text-text-secondary hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer opacity-0 group-hover:opacity-100 duration-200"
+                      title={language === 'vi' ? "Xóa thư mục" : "Delete folder"}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
-                {!f.is_shared ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteFolder(f.id); }}
-                    className="text-text-secondary hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer duration-200"
-                    title={language === 'vi' ? "Xóa thư mục" : "Delete folder"}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <div className="text-primary-dark/80 bg-primary/10 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                    Shared
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-extrabold text-text-primary text-base truncate mb-1">{f.name}</h3>
-                <p className="text-xs text-text-secondary">
-                  {f.is_shared 
-                    ? (language === 'vi' ? `Bởi ${f.ownerName || 'Chủ sở hữu'}` : `By ${f.ownerName || 'Owner'}`) 
-                    : (language === 'vi' ? `${f.docCount || 0} tài liệu bên trong` : `${f.docCount || 0} documents inside`)
+                <p className="text-xs text-text-secondary line-clamp-2 leading-relaxed">
+                  {f.is_shared
+                    ? (language === 'vi' ? `Thư mục được chia sẻ bởi ${f.ownerName || 'Chủ sở hữu'}.` : `Folder shared by ${f.ownerName || 'Owner'}.`)
+                    : (language === 'vi' ? 'Thư mục cá nhân dùng để lưu trữ và gom nhóm tài liệu.' : 'Personal folder for storing and grouping documents.')
                   }
                 </p>
               </div>
 
-              <div className="absolute right-0 bottom-0 w-24 h-24 bg-primary/5 rounded-full translate-x-8 translate-y-8 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="border-t border-border/60 pt-3 flex items-center justify-between text-xs text-text-secondary">
+                <div className="flex items-center space-x-2 truncate max-w-[70%]">
+                  <span className="text-[9px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full shrink-0">
+                    {language === 'vi' ? 'Thư mục' : 'Folder'}
+                  </span>
+                  <span className="truncate">
+                    {language === 'vi' ? `${f.docCount || 0} tài liệu` : `${f.docCount || 0} documents`}
+                  </span>
+                </div>
+                <span className="ml-auto font-semibold flex items-center space-x-1 shrink-0 text-primary group-hover:underline">
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  <span>{language === 'vi' ? 'Mở' : 'Open'}</span>
+                </span>
+              </div>
             </div>
           ))}
 
@@ -877,8 +904,8 @@ const DocumentList = () => {
             <div className="col-span-3 flex flex-col items-center justify-center p-12 bg-surface border border-border border-dashed rounded-xl">
               <Folder className="w-12 h-12 opacity-20 text-text-secondary mb-3" />
               <p className="text-text-secondary font-medium text-sm">
-                {folders.length === 0 
-                  ? (language === 'vi' ? "Chưa có thư mục nào được tạo." : "No folders created yet.") 
+                {folders.length === 0
+                  ? (language === 'vi' ? "Chưa có thư mục nào được tạo." : "No folders created yet.")
                   : (language === 'vi' ? "Không tìm thấy thư mục phù hợp." : "No matching folders found.")
                 }
               </p>
