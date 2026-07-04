@@ -64,8 +64,8 @@ const MainLayout = ({ children }) => {
     if (notif.type === 'document_restore_request' || notif.is_for_admin) {
       // Admin redirect: Deleted Documents
       navigate('/documents', { state: { viewMode: 'deleted', highlightDocId: targetDocId } });
-    } else if (notif.type === 'document_restored') {
-      // Go directly to the restored document details!
+    } else if (notif.type === 'document_restored' || notif.type === 'document_comment') {
+      // Go directly to the restored or commented document details!
       navigate(`/documents/${targetDocId}`);
     } else if (!notif.is_for_admin) {
       // User redirect: Active Documents
@@ -332,7 +332,7 @@ const MainLayout = ({ children }) => {
               <div className="w-7 h-7 bg-text-secondary/10 group-hover:bg-primary/10 rounded-full flex items-center justify-center transition-colors overflow-hidden">
                 {user?.avatar_url ? (
                   <img
-                    src={user.avatar_url.startsWith('http') ? user.avatar_url : `http://localhost:5000${user.avatar_url}`}
+                    src={user.avatar_url.startsWith('http') ? user.avatar_url : `${import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'}${user.avatar_url}`}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />

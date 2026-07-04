@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import API from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Loader2, Link as LinkIcon, Trash2, Send, Sparkles, BookOpen, Key, AlertTriangle, MessageSquare, Edit2, Bookmark, Users, HelpCircle, Layers, Plus, Calendar } from 'lucide-react';
+import { ArrowLeft, Loader2, Link as LinkIcon, Trash2, Send, Sparkles, BookOpen, Key, AlertTriangle, MessageSquare, Edit2, Bookmark, User, Users, HelpCircle, Layers, Plus, Calendar } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import { AuthContext } from '../context/AuthContext';
 import { SocketContext } from '../context/SocketContext';
@@ -82,6 +82,19 @@ const DocumentDetail = () => {
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState('');
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const commentsEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'comments') {
+      scrollToBottom();
+    }
+  }, [comments, activeTab]);
 
   // Proposal 4: Highlights / Annotations states
   const [annotations, setAnnotations] = useState([]);
@@ -537,9 +550,9 @@ const DocumentDetail = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
         {/* LEFT COLUMN: Document Detail & Summaries */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 flex flex-col lg:h-[calc(100vh-140px)] space-y-6">
           {isEditing ? (
-            <div className="space-y-6 bg-surface border border-border rounded-xl p-8 shadow-[0_2px_15px_rgba(0,0,0,0.02)]">
+            <div className="space-y-6 bg-surface border border-border rounded-xl p-8 shadow-[0_2px_15px_rgba(0,0,0,0.02)] flex-1 overflow-y-auto custom-scrollbar min-h-0">
               <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center space-x-2">
                 <span>{language === 'vi' ? 'Chỉnh sửa thông tin tài liệu' : 'Edit document info'}</span>
                 {aiLoading && <span className="text-xs text-primary font-normal animate-pulse">{(language === 'vi' ? '(AI đang phân tích & điền dữ liệu...)' : '(AI is analyzing & filling data...)')}</span>}
@@ -588,7 +601,7 @@ const DocumentDetail = () => {
             </div>
           ) : (
             <>
-              <div className="bg-surface border border-border rounded-xl p-8 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
+              <div className="bg-surface border border-border rounded-xl p-8 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex-1 overflow-y-auto custom-scrollbar min-h-0">
                 <div className="flex items-center space-x-2 mb-4">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getTagColor(doc.subject)}`}>
                     {doc.subject}
@@ -734,14 +747,14 @@ const DocumentDetail = () => {
           )}
 
           {/* Related Documents Container */}
-          <div className="bg-surface border border-border rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-            <div className="p-6 border-b border-border">
+          <div className="bg-surface border border-border rounded-xl shadow-[0_2px_10px_rgba(0,0,0,0.02)] shrink-0 max-h-[35%] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-border shrink-0">
               <h2 className="text-lg font-bold text-text-primary flex items-center space-x-2">
                 <LinkIcon className="w-5 h-5 text-text-secondary" />
                 <span>{language === 'vi' ? 'Tài liệu liên quan ngữ nghĩa (Semantic Matches)' : 'Semantic Matches (Related Documents)'}</span>
               </h2>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
               {relatedDocs.map((rdoc, idx) => (
                 <div
                   key={idx}
@@ -895,16 +908,62 @@ const DocumentDetail = () => {
                       {language === 'vi' ? 'Chưa có thảo luận nào. Hãy gửi bình luận đầu tiên dưới đây để trao đổi học tập!' : 'No discussions yet. Send the first comment below to start learning together!'}
                     </div>
                   ) : (
-                    comments.map(c => (
-                      <div key={c.id} className="bg-black/5 dark:bg-white/5 border border-border rounded-xl p-3 space-y-1">
-                        <div className="flex justify-between items-center text-[10px]">
-                          <span className="font-bold text-text-primary">{c.users?.name || c.users?.email}</span>
-                          <span className="text-text-secondary">{new Date(c.created_at).toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                    comments.map(c => {
+                      const isSelf = c.user_id === user?.id;
+                      const avatarUrl = c.users?.avatar_url;
+                      const commentAvatar = avatarUrl
+                        ? (avatarUrl.startsWith('http') ? avatarUrl : `${import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'}${avatarUrl}`)
+                        : null;
+                      const displayName = isSelf 
+                        ? (language === 'vi' ? 'Bạn' : 'You')
+                        : (c.users?.name || c.users?.email || 'User');
+
+                      return (
+                        <div 
+                          key={c.id} 
+                          className={`flex items-start gap-2.5 ${isSelf ? 'flex-row-reverse' : 'flex-row'}`}
+                        >
+                          {/* Avatar */}
+                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-border flex items-center justify-center bg-black/5 dark:bg-white/5">
+                            {commentAvatar ? (
+                              <img 
+                                src={commentAvatar} 
+                                alt="Avatar" 
+                                className="w-full h-full object-cover" 
+                              />
+                            ) : (
+                              <User className="w-4 h-4 text-text-secondary" />
+                            )}
+                          </div>
+
+                          {/* Message Bubble Container */}
+                          <div className={`flex flex-col max-w-[75%] ${isSelf ? 'items-end' : 'items-start'}`}>
+                            {/* Metadata: Name + Time */}
+                            <div className="flex items-center space-x-2 px-1 mb-1 text-[10px] text-text-secondary">
+                              <span className="font-bold">{displayName}</span>
+                              <span>•</span>
+                              <span>
+                                {new Date(c.created_at).toLocaleTimeString(language === 'vi' ? 'vi-VN' : 'en-US', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                            </div>
+
+                            {/* Content Bubble */}
+                            <div className={`p-3 rounded-2xl text-xs leading-normal shadow-sm ${
+                              isSelf 
+                                ? 'bg-primary text-white rounded-tr-none' 
+                                : 'bg-surface border border-border text-text-primary rounded-tl-none'
+                            }`}>
+                              <p className="break-words whitespace-pre-wrap">{c.content}</p>
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-xs text-text-primary leading-normal">{c.content}</p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
+                  <div ref={commentsEndRef} />
                 </div>
 
                 {/* Comment Input Box */}

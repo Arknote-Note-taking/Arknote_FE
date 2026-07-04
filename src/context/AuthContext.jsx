@@ -13,21 +13,27 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
+  // Sync user state with localStorage
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('user');
+    }
+  }, [user]);
+
   const login = (userData) => {
     setUser((prevUser) => {
-      const updatedUser = {
+      return {
         ...prevUser,
         ...userData,
         // Ensure token is preserved if it exists in previous state and is missing in new data
         token: userData?.token || prevUser?.token
       };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      return updatedUser;
     });
   };
 
   const logout = () => {
-    localStorage.removeItem('user');
     setUser(null);
   };
 

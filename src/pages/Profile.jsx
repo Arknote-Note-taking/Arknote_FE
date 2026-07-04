@@ -90,7 +90,7 @@ const Profile = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setProfile(res.data);
-      login({ ...user, avatar_url: res.data.avatar_url });
+      login({ avatar_url: res.data.avatar_url });
       toast.success(language === 'vi' ? "Cập nhật ảnh đại diện thành công!" : "Avatar updated successfully!");
     } catch (error) {
       toast.error(language === 'vi' ? "Không thể tải ảnh lên" : "Failed to upload image");
@@ -111,7 +111,7 @@ const Profile = () => {
       localStorage.setItem('profile_phone', phone);
 
       // Update AuthContext so header and other components reflect the change
-      login({ ...user, name: res.data.name, avatar_url: res.data.avatar_url });
+      login({ name: res.data.name, avatar_url: res.data.avatar_url });
       setIsEditing(false);
       toast.success(language === 'vi' ? "Cập nhật hồ sơ thành công!" : "Profile updated successfully!");
     } catch (error) {
@@ -177,7 +177,8 @@ const Profile = () => {
   const getAvatarSource = () => {
     if (!profile?.avatar_url) return null;
     if (profile.avatar_url.startsWith('http')) return profile.avatar_url;
-    return `http://localhost:5000${profile.avatar_url}`;
+    const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    return `${backendUrl}${profile.avatar_url}`;
   };
 
   return (
