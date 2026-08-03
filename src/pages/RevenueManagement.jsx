@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
+import * as XLSX from 'xlsx';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -14,7 +15,8 @@ import {
   ChevronRight,
   ArrowUpRight,
   Filter,
-  LineChart as LineChartIcon
+  LineChart as LineChartIcon,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import toast from 'react-hot-toast';
@@ -75,6 +77,7 @@ const RevenueManagement = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   // Fetch summary metrics & chart data
   const fetchSummary = async () => {
@@ -120,11 +123,106 @@ const RevenueManagement = () => {
   const handleRefresh = () => {
     fetchSummary();
     fetchTransactions();
-    toast.success('Đã làm mới dữ liệu doanh thu mới nhất!');
+    toast.success(language === 'vi' ? 'Đã làm mới dữ liệu doanh thu mới nhất!' : 'Revenue data refreshed!');
   };
 
   const formatVND = (amount) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
+  };
+
+  const formatMonthLabel = (label) => {
+    if (!label) return '';
+    if (language === 'en') {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const match = String(label).match(/Thg\s*(\d+)/i);
+      if (match) {
+        const mNum = parseInt(match[1], 10);
+        if (mNum >= 1 && mNum <= 12) return monthNames[mNum - 1];
+      }
+    }
+    return label;
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '---';
+    return new Date(dateStr).toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setExportingExcel(true);
+      toast.loading('Đang khởi tạo file báo cáo Excel...', { id: 'export-excel' });
+
+      // Fetch all transactions (unfiltered) for full export
+      const res = await API.get('/payment/admin/transactions', { params: { status: 'all' } });
+      const allTx = res.data.transactions || [];
+
+      // Sheet 1: Summary report
+      const summaryRows = [
+        { "Chỉ số doanh thu": "Tổng doanh thu", "Gía trị / Số lượng": formatVND(summaryData?.summary?.totalRevenue) },
+        { "Chỉ số doanh thu": "Doanh thu tháng này", "Gía trị / Số lượng": formatVND(summaryData?.summary?.monthRevenue) },
+        { "Chỉ số doanh thu": "Doanh thu hôm nay", "Gía trị / Số lượng": formatVND(summaryData?.summary?.todayRevenue) },
+        { "Chỉ số doanh thu": "Tổng số đơn khởi tạo", "Gía trị / Số lượng": summaryData?.summary?.totalTransactions || 0 },
+        { "Chỉ số doanh thu": "Giao dịch thành công (PAID)", "Gía trị / Số lượng": summaryData?.summary?.paidCount || 0 },
+        { "Chỉ số doanh thu": "Giao dịch đang chờ (PENDING)", "Gía trị / Số lượng": summaryData?.summary?.pendingCount || 0 },
+        { "Chỉ số doanh thu": "Giao dịch đã hủy (CANCELLED)", "Gía trị / Số lượng": summaryData?.summary?.cancelledCount || 0 },
+        { "Chỉ số doanh thu": "Giá trị trung bình / đơn", "Gía trị / Số lượng": formatVND(summaryData?.summary?.avgTransactionValue) }
+      ];
+
+      // Sheet 2: Detailed transaction list
+      const txRows = allTx.map((tx, index) => {
+        const statusStr = (tx.status || 'pending').toLowerCase();
+        let statusLabel = 'Đang chờ (PENDING)';
+        if (statusStr === 'paid') statusLabel = 'Đã thanh toán (PAID)';
+        else if (statusStr === 'cancelled' || statusStr === 'canceled' || statusStr === 'failed') statusLabel = 'Đã hủy (CANCELLED)';
+
+        const userObj = tx.users || {};
+        return {
+          "STT": index + 1,
+          "Mã đơn hàng": `#${tx.order_code}`,
+          "Khách hàng": userObj.name || userObj.full_name || 'Khách hàng',
+          "Email": userObj.email || 'N/A',
+          "Số tiền (VND)": Number(tx.amount) || 0,
+          "Trạng thái": statusLabel,
+          "Thời gian khởi tạo / Thanh toán": formatDate(tx.paid_at || tx.created_at)
+        };
+      });
+
+      const wb = XLSX.utils.book_new();
+
+      const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+      const wsTx = XLSX.utils.json_to_sheet(txRows);
+
+      wsSummary['!cols'] = [{ wch: 32 }, { wch: 25 }];
+      wsTx['!cols'] = [
+        { wch: 6 },
+        { wch: 18 },
+        { wch: 25 },
+        { wch: 30 },
+        { wch: 16 },
+        { wch: 25 },
+        { wch: 26 }
+      ];
+
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Tong_Quan_Doanh_Thu");
+      XLSX.utils.book_append_sheet(wb, wsTx, "Danh_Sach_Giao_Dich");
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, `Bao_Cao_Doanh_Thu_Arknote_${todayStr}.xlsx`);
+
+      toast.success('Đã xuất file báo cáo Excel thành công!', { id: 'export-excel' });
+    } catch (err) {
+      console.error('Export Excel error:', err);
+      toast.error('Không thể xuất file Excel báo cáo', { id: 'export-excel' });
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   const formatCompactVND = (amount) => {
@@ -132,17 +230,6 @@ const RevenueManagement = () => {
     if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
     if (amount >= 1000) return `${Math.round(amount / 1000)}k`;
     return `${amount}đ`;
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '---';
-    return new Date(dateStr).toLocaleString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   // Pagination for transactions
@@ -214,7 +301,7 @@ const RevenueManagement = () => {
             </h3>
             <p className="text-xs text-text-secondary mt-1 flex items-center gap-1">
               <ArrowUpRight className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Toàn thời gian</span>
+              <span>{t('allTime')}</span>
             </p>
           </div>
         </div>
@@ -234,7 +321,7 @@ const RevenueManagement = () => {
               {loadingSummary ? '...' : formatVND(summaryData?.summary?.monthRevenue)}
             </h3>
             <p className="text-xs text-text-secondary mt-1">
-              Doanh thu tháng hiện tại
+              {t('currentMonthRevenueDesc')}
             </p>
           </div>
         </div>
@@ -254,7 +341,7 @@ const RevenueManagement = () => {
               {loadingSummary ? '...' : formatVND(summaryData?.summary?.todayRevenue)}
             </h3>
             <p className="text-xs text-text-secondary mt-1">
-              Phát sinh hôm nay
+              {t('todayGenerated')}
             </p>
           </div>
         </div>
@@ -263,7 +350,7 @@ const RevenueManagement = () => {
         <div className="bg-surface border border-border p-5 rounded-2xl shadow-xs relative overflow-hidden group hover:border-indigo-500/50 transition-all duration-300">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
-              Giao dịch thành công
+              {t('successfulTransactions')}
             </span>
             <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 shadow-xs">
               <CheckCircle2 className="w-5 h-5" />
@@ -274,7 +361,7 @@ const RevenueManagement = () => {
               {loadingSummary ? '...' : `${summaryData?.summary?.paidCount || 0} / ${summaryData?.summary?.totalTransactions || 0}`}
             </h3>
             <p className="text-xs text-text-secondary mt-1">
-              TB: {formatVND(summaryData?.summary?.avgTransactionValue)} / đơn
+              {t('avgPerOrder')}: {formatVND(summaryData?.summary?.avgTransactionValue)}
             </p>
           </div>
         </div>
@@ -288,11 +375,8 @@ const RevenueManagement = () => {
               <LineChartIcon className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">
-                <span>Biểu đồ đường tăng trưởng Doanh thu</span>
-                <span className="text-xs font-bold px-3 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  {formatVND(totalChartRevenue)} ({totalChartCount} đơn)
-                </span>
+              <h2 className="text-lg font-bold text-text-primary">
+                {t('revenueGrowthChart')}
               </h2>
             </div>
           </div>
@@ -308,7 +392,7 @@ const RevenueManagement = () => {
                     : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                30 Ngày gần nhất
+                {t('last30Days')}
               </button>
               <button
                 onClick={() => setTimeView('monthly')}
@@ -318,7 +402,7 @@ const RevenueManagement = () => {
                     : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                12 Tháng
+                {t('twelveMonths')}
               </button>
               <button
                 onClick={() => setTimeView('yearly')}
@@ -328,19 +412,34 @@ const RevenueManagement = () => {
                     : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                Theo Năm
+                {t('byYear')}
               </button>
             </div>
+
+            {/* Export Excel Button */}
+            <button
+              onClick={handleExportExcel}
+              disabled={exportingExcel || loadingSummary}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl border border-emerald-500/30 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              title={t('exportReport')}
+            >
+              {exportingExcel ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+              )}
+              <span>{t('exportReport')}</span>
+            </button>
 
             {/* Refresh Button */}
             <button
               onClick={handleRefresh}
               disabled={loadingSummary || loadingTx}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-surface hover:bg-surface-hover text-text-primary font-semibold text-xs rounded-xl border border-border transition-all cursor-pointer shadow-xs disabled:opacity-50"
-              title="Làm mới dữ liệu"
+              title={t('refresh')}
             >
               <RefreshCw className={`w-3.5 h-3.5 text-primary ${(loadingSummary || loadingTx) ? 'animate-spin' : ''}`} />
-              <span>Làm mới</span>
+              <span>{t('refresh')}</span>
             </button>
           </div>
         </div>
@@ -439,11 +538,12 @@ const RevenueManagement = () => {
 
                 {/* Data Node Circles & Hover Trigger */}
                 {points.map((pt) => {
-                  const labelText = timeView === 'daily' 
+                  const rawLabelText = timeView === 'daily' 
                     ? pt.date?.slice(5) 
                     : timeView === 'monthly' 
                       ? pt.label || pt.month 
                       : pt.year;
+                  const labelText = formatMonthLabel(rawLabelText);
 
                   const isHovered = hoveredIndex === pt.idx;
                   const hasValue = pt.revenue > 0;
@@ -532,13 +632,13 @@ const RevenueManagement = () => {
                   className="absolute -translate-x-1/2 bg-slate-900 text-white text-xs font-semibold py-2 px-3.5 rounded-xl pointer-events-none z-30 shadow-xl border border-slate-700 animate-fadeIn"
                 >
                   <div className="text-slate-400 text-[10px]">
-                    {points[hoveredIndex].date || points[hoveredIndex].month || points[hoveredIndex].year}
+                    {formatMonthLabel(points[hoveredIndex].date || points[hoveredIndex].month || points[hoveredIndex].year)}
                   </div>
                   <div className="text-emerald-400 font-black text-sm">
                     {formatVND(points[hoveredIndex].revenue)}
                   </div>
                   <div className="text-slate-300 text-[10px]">
-                    {points[hoveredIndex].count} đơn thanh toán
+                    {points[hoveredIndex].count} {language === 'vi' ? 'đơn thanh toán' : 'order(s)'}
                   </div>
                 </div>
               )}
@@ -555,7 +655,7 @@ const RevenueManagement = () => {
             <div>
               <h2 className="text-lg font-bold text-text-primary">{t('transactionHistory')}</h2>
               <p className="text-xs text-text-secondary mt-0.5">
-                Hiển thị tất cả giao dịch thanh toán khởi tạo trong hệ thống.
+                {t('transactionHistoryDesc')}
               </p>
             </div>
 
@@ -568,10 +668,10 @@ const RevenueManagement = () => {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="pl-9 pr-8 py-2 bg-background border border-border rounded-xl text-xs font-semibold text-text-primary appearance-none focus:outline-none focus:border-primary cursor-pointer"
                 >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="paid">Đã thanh toán (PAID)</option>
-                  <option value="pending">Đang chờ (PENDING)</option>
-                  <option value="cancelled">Đã hủy (CANCELLED)</option>
+                  <option value="all">{t('allStatuses')}</option>
+                  <option value="paid">{t('statusPaidOption')}</option>
+                  <option value="pending">{t('statusPendingOption')}</option>
+                  <option value="cancelled">{t('statusCancelledOption')}</option>
                 </select>
                 <Filter className="w-3.5 h-3.5 text-text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -595,22 +695,22 @@ const RevenueManagement = () => {
         {loadingTx ? (
           <div className="p-12 flex flex-col items-center justify-center text-text-secondary">
             <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
-            <span className="text-sm">Đang tải lịch sử giao dịch...</span>
+            <span className="text-sm">{t('loadingTransactions')}</span>
           </div>
         ) : currentTransactions.length === 0 ? (
           <div className="p-12 text-center text-text-secondary text-sm">
-            Không tìm thấy giao dịch nào phù hợp với bộ lọc.
+            {t('noTransactionsFound')}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-black/5 dark:bg-white/5 border-b border-border text-[11px] font-bold uppercase tracking-wider text-text-secondary">
-                  <th className="py-3.5 px-4 sm:px-6">Mã đơn hàng</th>
-                  <th className="py-3.5 px-4 sm:px-6">Khách hàng</th>
-                  <th className="py-3.5 px-4 sm:px-6">Số tiền</th>
-                  <th className="py-3.5 px-4 sm:px-6">Trạng thái</th>
-                  <th className="py-3.5 px-4 sm:px-6">Thời gian</th>
+                  <th className="py-3.5 px-4 sm:px-6">{t('orderCodeHeader')}</th>
+                  <th className="py-3.5 px-4 sm:px-6">{t('customerHeader')}</th>
+                  <th className="py-3.5 px-4 sm:px-6">{t('amountHeader')}</th>
+                  <th className="py-3.5 px-4 sm:px-6">{t('statusHeader')}</th>
+                  <th className="py-3.5 px-4 sm:px-6">{t('timeHeader')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-sm">
@@ -639,7 +739,7 @@ const RevenueManagement = () => {
                           </div>
                           <div className="min-w-0">
                             <div className="font-semibold text-text-primary truncate text-xs sm:text-sm">
-                              {userObj.name || userObj.full_name || 'Khách hàng'}
+                              {userObj.name || userObj.full_name || t('customerFallback')}
                             </div>
                             <div className="text-text-secondary text-xs truncate">
                               {userObj.email || '---'}
@@ -658,17 +758,17 @@ const RevenueManagement = () => {
                         {isPaid ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Đã thanh toán</span>
+                            <span>{t('statusPaidBadge')}</span>
                           </span>
                         ) : isPending ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                             <Clock className="w-3.5 h-3.5" />
-                            <span>Đang chờ</span>
+                            <span>{t('statusPendingBadge')}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                             <XCircle className="w-3.5 h-3.5" />
-                            <span>Đã hủy</span>
+                            <span>{t('statusCancelledBadge')}</span>
                           </span>
                         )}
                       </td>
