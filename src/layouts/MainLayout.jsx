@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X, Zap, Clock, DollarSign } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X, Zap, Clock, DollarSign, LogOut, Globe, ChevronDown } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getQuotaStatus, formatCountdown } from '../utils/quotaUtils';
@@ -9,8 +9,9 @@ import { getQuotaStatus, formatCountdown } from '../utils/quotaUtils';
 const MainLayout = ({ children }) => {
   const { user, logout } = useContext(AuthContext);
   const { notifications, unreadCount, markAllAsRead, markAsRead, clearNotifications, deleteNotification } = useContext(SocketContext);
-  const { language, t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -213,18 +214,6 @@ const MainLayout = ({ children }) => {
             <div className="text-xs text-text-secondary/50 font-medium hidden sm:block">Arknote</div>
           </div>
           <div className="flex items-center space-x-3">
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`relative p-1.5 rounded-xl transition-all cursor-pointer flex items-center text-xs font-medium px-2 border ${darkMode
-                ? 'bg-slate-800 border-slate-700 text-yellow-400 hover:bg-slate-700'
-                : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
-                }`}
-              title="Chuyển chế độ Sáng/Tối"
-            >
-              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
             {/* PRO status badge - between Dark Mode and Notifications */}
             {user?.role !== 'admin' && (
               <div className="flex items-center">
@@ -329,19 +318,111 @@ const MainLayout = ({ children }) => {
                 </div>
               )}
             </div>
-            <NavLink to="/profile" className="flex items-center space-x-2 border border-border p-1 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 hover:border-primary/30 transition group">
-              <div className="w-7 h-7 bg-text-secondary/10 group-hover:bg-primary/10 rounded-full flex items-center justify-center transition-colors overflow-hidden">
-                {user?.avatar_url ? (
-                  <img
-                    src={user.avatar_url.startsWith('http') ? user.avatar_url : `${import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'}${user.avatar_url}`}
-                    alt="Avatar"
-                    className="w-full h-full object-cover"
+            {/* User Profile Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setShowUserMenu(!showUserMenu);
+                  setShowNotifications(false);
+                }}
+                className="flex items-center space-x-1 border border-border p-1 rounded-full cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 hover:border-primary/30 transition group focus:outline-none"
+                title="Menu tài khoản"
+              >
+                <div className="w-7 h-7 bg-text-secondary/10 group-hover:bg-primary/10 rounded-full flex items-center justify-center transition-colors overflow-hidden shrink-0">
+                  {user?.avatar_url ? (
+                    <img
+                      src={user.avatar_url.startsWith('http') ? user.avatar_url : `${import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'}${user.avatar_url}`}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="w-4 h-4 text-text-secondary group-hover:text-primary transition-colors" />
+                  )}
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-text-secondary group-hover:text-text-primary mr-0.5 transition-transform duration-200" />
+              </button>
+
+              {showUserMenu && (
+                <>
+                  {/* Invisible Backdrop to close dropdown on click outside */}
+                  <div
+                    className="fixed inset-0 z-[240]"
+                    onClick={() => setShowUserMenu(false)}
                   />
-                ) : (
-                  <UserIcon className="w-4 h-4 text-text-secondary group-hover:text-primary transition-colors" />
-                )}
-              </div>
-            </NavLink>
+
+                  {/* Dropdown Card */}
+                  <div className="absolute right-0 mt-2 w-56 bg-surface border border-border rounded-2xl shadow-2xl z-[250] py-2 overflow-hidden transform origin-top-right transition-all">
+                    {/* User Info Header */}
+                    <div className="px-4 py-2.5 border-b border-border mb-1">
+                      <p className="text-xs font-bold text-text-primary truncate">
+                        {user?.name || user?.full_name || 'Học viên Arknote'}
+                      </p>
+                      <p className="text-[11px] text-text-secondary truncate mt-0.5">
+                        {user?.email || 'chua_dang_nhap@arknote.app'}
+                      </p>
+                    </div>
+
+                    {/* 1. Hồ sơ của tôi */}
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        navigate('/profile');
+                      }}
+                      className="w-full px-4 py-2.5 flex items-center space-x-3 text-xs font-semibold text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-left"
+                    >
+                      <UserIcon className="w-4 h-4 text-primary" />
+                      <span>{t('myProfile') || 'Hồ sơ của tôi'}</span>
+                    </button>
+
+                    {/* 2. Ngôn ngữ */}
+                    <button
+                      onClick={() => {
+                        setLanguage(language === 'vi' ? 'en' : 'vi');
+                      }}
+                      className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-semibold text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-left"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Globe className="w-4 h-4 text-sky-500" />
+                        <span>{t('language') || 'Ngôn ngữ'}</span>
+                      </div>
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase">
+                        {language === 'vi' ? 'Tiếng Việt' : 'English'}
+                      </span>
+                    </button>
+
+                    {/* 3. Darkmode */}
+                    <button
+                      onClick={() => {
+                        setDarkMode(!darkMode);
+                      }}
+                      className="w-full px-4 py-2.5 flex items-center justify-between text-xs font-semibold text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer text-left"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                        <span>{t('theme') || 'Giao diện'}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-text-secondary">
+                        {darkMode ? (t('darkmode') || 'Tối') : (t('lightmode') || 'Sáng')}
+                      </span>
+                    </button>
+
+                    <div className="border-t border-border my-1" />
+
+                    {/* 4. Đăng xuất */}
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleLogout();
+                      }}
+                      className="w-full px-4 py-2.5 flex items-center space-x-3 text-xs font-semibold text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer text-left"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-500" />
+                      <span>{t('logout') || 'Đăng xuất'}</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </header>
 
