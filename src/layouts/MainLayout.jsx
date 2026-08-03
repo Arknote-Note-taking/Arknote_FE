@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X, Zap, Clock } from 'lucide-react';
+import { LayoutGrid, FileText, BrainCircuit, Network, Bell, User as UserIcon, Users, FolderOpen, Sun, Moon, Trash2, ClipboardList, Layers, Menu, X, Zap, Clock, DollarSign } from 'lucide-react';
 import { SocketContext } from '../context/SocketContext';
 import { useLanguage } from '../context/LanguageContext';
 import { getQuotaStatus, formatCountdown } from '../utils/quotaUtils';
@@ -104,7 +104,8 @@ const MainLayout = ({ children }) => {
   const navItems = user?.role === 'admin'
     ? [
       ...baseNavItems.filter(item => item.path !== '/ai' && item.path !== '/graph'),
-      { name: t('users'), path: '/users', icon: Users }
+      { name: t('users'), path: '/users', icon: Users },
+      { name: t('revenue'), path: '/revenue', icon: DollarSign }
     ]
     : baseNavItems;
 

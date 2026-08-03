@@ -30,6 +30,7 @@ import AiAnalysis from './pages/AiAnalysis';
 import GraphView from './pages/GraphView';
 import DocumentDetail from './pages/DocumentDetail';
 import UserManagement from './pages/UserManagement';
+import RevenueManagement from './pages/RevenueManagement';
 import Profile from './pages/Profile';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentCancel from './pages/PaymentCancel';
@@ -86,6 +87,7 @@ const AppContent = () => {
         <Route path="/quizzes/:id" element={<PrivateRoute><TakeQuiz /></PrivateRoute>} />
         <Route path="/flashcards" element={<PrivateRoute><Flashcards /></PrivateRoute>} />
         <Route path="/users" element={user && user.role === 'admin' ? <PrivateRoute><UserManagement /></PrivateRoute> : <Navigate to="/dashboard" />} />
+        <Route path="/revenue" element={user && user.role === 'admin' ? <PrivateRoute><RevenueManagement /></PrivateRoute> : <Navigate to="/dashboard" />} />
       </Routes>
     </Router>
   );
