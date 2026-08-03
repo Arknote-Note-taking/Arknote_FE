@@ -426,6 +426,29 @@ const MainLayout = ({ children }) => {
           </div>
         </header>
 
+        {/* Low AI Quota Warning Banner */}
+        {user && user.role !== 'admin' && typeof user.ai_credits_remaining === 'number' && user.ai_credits_remaining < 5 && (
+          <div className="bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/15 border-b border-amber-500/20 px-6 py-2 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200 shrink-0">
+            <div className="flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-amber-500 animate-bounce" />
+              <span>
+                {language === 'vi'
+                  ? `Cảnh báo: Bạn chỉ còn ${user.ai_credits_remaining} lượt sử dụng AI hôm nay.`
+                  : `Warning: You only have ${user.ai_credits_remaining} AI credits left today.`}
+                {!user.is_pro && (language === 'vi' ? ' Nâng cấp tài khoản PRO để có 100 lượt/ngày!' : ' Upgrade to PRO for 100 credits/day!')}
+              </span>
+            </div>
+            {!user.is_pro && (
+              <button
+                onClick={() => navigate('/#pricing')}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1 rounded-lg transition-all text-[11px] shadow-sm cursor-pointer ml-3 shrink-0"
+              >
+                {language === 'vi' ? 'Nâng cấp PRO' : 'Upgrade PRO'}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Dynamic Outlet / Children */}
         <main className="flex-1 overflow-y-auto px-8 py-8 custom-scrollbar bg-background text-text-primary transition-colors duration-300">
           {children}
