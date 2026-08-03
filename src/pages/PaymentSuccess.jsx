@@ -22,16 +22,24 @@ const PaymentSuccess = () => {
     if (verifiedRef.current) return;
     verifiedRef.current = true;
 
-    const verify = async () => {
+    let isMounted = true;
+    let attempts = 0;
+    const maxAttempts = 6; // retry up to 6 times (12s total) to wait for bank settlement
+
+    const pollVerify = async () => {
       if (!orderCode) {
-        setLoading(false);
-        setError('Không tìm thấy thông tin mã đơn hàng (orderCode) trong liên kết.');
+        if (isMounted) {
+          setLoading(false);
+          setError('Không tìm thấy thông tin mã đơn hàng (orderCode) trong liên kết.');
+        }
         return;
       }
 
-      // Check if user is already pro, but we still verify with backend to ensure backend data is updated
+      attempts++;
       try {
         const res = await API.post('/payment/verify-payment', { orderCode: Number(orderCode) });
+        if (!isMounted) return;
+
         if (res.data && res.data.success) {
           setSuccess(true);
           const formattedAmount = res.data.amount 
@@ -43,23 +51,41 @@ const PaymentSuccess = () => {
             amount: formattedAmount
           });
           
-          // Update user info in AuthContext
           if (user) {
             login({ ...user, is_pro: true });
           }
           toast.success('Nâng cấp tài khoản PRO thành công! 🎉');
-        } else {
-          setError(res.data.message || 'Xác nhận thanh toán thất bại.');
+          setLoading(false);
+          return;
         }
+
+        const currentStatus = res.data?.status;
+        if ((currentStatus === 'PENDING' || currentStatus === 'PROCESSING') && attempts < maxAttempts) {
+          setTimeout(pollVerify, 2000);
+          return;
+        }
+
+        setError(res.data?.message || 'Xác nhận thanh toán thất bại.');
+        setLoading(false);
       } catch (err) {
         console.error(err);
+        if (!isMounted) return;
+
+        if (attempts < maxAttempts) {
+          setTimeout(pollVerify, 2000);
+          return;
+        }
+
         setError(err.response?.data?.error || 'Có lỗi xảy ra trong quá trình xác thực giao dịch.');
-      } finally {
         setLoading(false);
       }
     };
 
-    verify();
+    pollVerify();
+
+    return () => {
+      isMounted = false;
+    };
   }, [orderCode]);
 
   return (
