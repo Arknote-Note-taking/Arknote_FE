@@ -77,7 +77,7 @@ const DocumentDetail = () => {
   const [deduplicateWarning, setDeduplicateWarning] = useState(false);
 
   // Proposal 3: Document Comments states
-  const { socket } = useContext(SocketContext);
+  const { socket, generateFlashcardsInBackground, isGeneratingAi } = useContext(SocketContext);
   const [activeTab, setActiveTab] = useState('ai');
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState('');
@@ -101,6 +101,13 @@ const DocumentDetail = () => {
   const [selectedText, setSelectedText] = useState('');
   const [annotationNote, setAnnotationNote] = useState('');
   const [showAnnotationModal, setShowAnnotationModal] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+  
   // AI Chatbox and Studio state
   const [chatMessages, setChatMessages] = useState([
     {
@@ -147,99 +154,42 @@ const DocumentDetail = () => {
   };
 
   const handleGenerateFlashcards = async (params = {}) => {
-    if (generatingFlashcards) return;
+    if (generatingFlashcards || isGeneratingAi) return;
     setFlashcardError(null);
     setGeneratingFlashcards(true);
-    const toastId = toast.loading('AI đang tự động sinh bộ thẻ Flashcards...');
-    try {
-      const res = await API.post('/flashcards/generate', {
-        documentId: id,
-        count: 8,
-        forceRegenerate: params.forceRegenerate,
-        ignoreHashCheck: params.ignoreHashCheck,
-        mode: params.mode
-      });
 
-      if (res.data && res.data.status === 'confirm_mode') {
-        toast.dismiss(toastId);
-        setGeneratingFlashcards(false);
-        setDeduplicateWarning(false);
-        setShowDeduplicateChoiceModal(true);
-        return;
-      }
-
-      // Async mode: job enqueued — poll status
-      if (res.status === 202 && res.data.jobId) {
-        const jobId = res.data.jobId;
-        toast.loading('AI đang xử lý Flashcards trong nền...', { id: toastId });
-
-        // Poll every 2.5 seconds
-        const poll = setInterval(async () => {
-          try {
-            const statusRes = await API.get(`/jobs/${jobId}/status`);
-            const { status, progress } = statusRes.data;
-            if (status === 'active') {
-              toast.loading(`Đang tạo Flashcards... ${progress || 0}%`, { id: toastId });
-            }
-            if (status === 'completed') {
-              clearInterval(poll);
-              refreshProfile();
-              toast.success('Tạo bộ Flashcards thành công!', { id: toastId });
-              navigate('/flashcards');
-              setGeneratingFlashcards(false);
-            }
-            if (status === 'failed') {
-              clearInterval(poll);
-              const errMsg = statusRes.data.error || 'Không thể tạo bộ Flashcards.';
-              if (isQuotaError(errMsg)) {
-                setFlashcardError('quota');
-                toast.dismiss(toastId);
-              } else {
-                toast.error(errMsg, { id: toastId });
-              }
-              setGeneratingFlashcards(false);
-            }
-          } catch {
-            clearInterval(poll);
-            toast.error('Lỗi kiểm tra trạng thái tạo Flashcards.', { id: toastId });
+    if (generateFlashcardsInBackground) {
+      await generateFlashcardsInBackground(
+        {
+          documentId: id,
+          forceRegenerate: params.forceRegenerate,
+          ignoreHashCheck: params.ignoreHashCheck,
+          mode: params.mode
+        },
+        {
+          onConfirmMode: () => {
             setGeneratingFlashcards(false);
-          }
-        }, 2500);
-
-        // Safety timeout: 3 minutes
-        setTimeout(() => {
-          clearInterval(poll);
-          if (generatingFlashcards) {
-            toast.error('Quá thời gian chờ. Vui lòng thử lại.', { id: toastId });
+            setDeduplicateWarning(false);
+            setShowDeduplicateChoiceModal(true);
+          },
+          onContentNotChanged: () => {
             setGeneratingFlashcards(false);
+            setDeduplicateWarning(true);
+            setShowDeduplicateChoiceModal(true);
+          },
+          onSuccess: () => {
+            setGeneratingFlashcards(false);
+            refreshProfile();
+          },
+          onError: (errMsg) => {
+            setGeneratingFlashcards(false);
+            if (isQuotaError(errMsg)) {
+              setFlashcardError('quota');
+            }
           }
-        }, 180000);
-        return;
-      }
-
-      // Sync mode fallback (no Redis)
-      refreshProfile();
-      toast.success('Tạo bộ Flashcards thành công!', { id: toastId });
-      navigate('/flashcards');
-    } catch (err) {
-      const errRes = err.response?.data;
-      if (errRes && errRes.error === 'content_not_changed') {
-        toast.dismiss(toastId);
-        setGeneratingFlashcards(false);
-        setDeduplicateWarning(true);
-        setShowDeduplicateChoiceModal(true);
-        return;
-      }
-      const errMsg = err.response?.data?.error || 'Không thể khởi tạo bộ flashcard AI lúc này.';
-      if (isQuotaError(errMsg)) {
-        setFlashcardError('quota');
-        toast.dismiss(toastId);
-      } else {
-        toast.error(errMsg, { id: toastId });
-      }
-    } finally {
-      // Only set false in sync mode; async mode handles it above
-      if (!generatingFlashcards) return;
+        }
+      );
+    } else {
       setGeneratingFlashcards(false);
     }
   };

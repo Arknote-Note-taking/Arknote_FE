@@ -328,10 +328,34 @@ export const SocketProvider = ({ children }) => {
         }
       });
 
+      // Listen for background worker AI job completions
+      const userJobChannel = `job_done:user:${user.id}`;
+      newSocket.on(userJobChannel, (data) => {
+        console.log('[Socket-Debug] Received job_done for user:', data);
+        if (data.type === 'flashcards') {
+          const deckTitle = data.deck?.title || 'Bộ thẻ mới';
+          toast.success(
+            <div 
+              onClick={() => {
+                toast.dismiss();
+                window.dispatchEvent(new CustomEvent('app-navigate', { detail: { path: '/flashcards' } }));
+              }}
+              className="cursor-pointer text-xs flex flex-col gap-1"
+            >
+              <span className="font-bold text-primary block">🎉 AI đã tạo xong Flashcards!</span>
+              <span>Bộ thẻ: <strong>{deckTitle}</strong> ({data.cards?.length || 0} thẻ ghi nhớ). Nhấn vào để mở ngay.</span>
+            </div>,
+            { duration: 8000 }
+          );
+          window.dispatchEvent(new CustomEvent('flashcard-created', { detail: data }));
+        }
+      });
+
       return () => {
         newSocket.off('admin_notification');
         newSocket.off('user_notification');
         newSocket.off('payment_success');
+        newSocket.off(userJobChannel);
         newSocket.close();
       };
     } else {
@@ -343,6 +367,132 @@ export const SocketProvider = ({ children }) => {
     }
   }, [user]);
 
+  const activeAiTasks = React.useRef(new Set());
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  const generateFlashcardsInBackground = async (params, callbacks = {}) => {
+    const docId = params.documentId;
+    if (activeAiTasks.current.has(docId)) {
+      toast.error('Tiến trình tạo Flashcard cho tài liệu này đang chạy ngầm...');
+      return;
+    }
+
+    activeAiTasks.current.add(docId);
+    setIsGeneratingAi(true);
+    const toastId = toast.loading('⚡ AI đang khởi tạo bộ Flashcards... Bạn có thể tự do chuyển sang trang khác!');
+
+    try {
+      const res = await API.post('/flashcards/generate', {
+        documentId: docId,
+        count: params.count,
+        forceRegenerate: params.forceRegenerate,
+        ignoreHashCheck: params.ignoreHashCheck,
+        mode: params.mode
+      });
+
+      if (res.data && res.data.status === 'confirm_mode') {
+        toast.dismiss(toastId);
+        activeAiTasks.current.delete(docId);
+        setIsGeneratingAi(false);
+        if (callbacks.onConfirmMode) callbacks.onConfirmMode();
+        return;
+      }
+
+      // Async mode: job enqueued — poll status globally in background
+      if (res.status === 202 && res.data.jobId) {
+        const jobId = res.data.jobId;
+        toast.loading('AI đang tự động xử lý Flashcards trong nền...', { id: toastId });
+
+        const poll = setInterval(async () => {
+          try {
+            const statusRes = await API.get(`/jobs/${jobId}/status`);
+            const { status, progress } = statusRes.data;
+            if (status === 'active') {
+              toast.loading(`Đang tạo Flashcards... ${progress || 0}%`, { id: toastId });
+            }
+            if (status === 'completed') {
+              clearInterval(poll);
+              activeAiTasks.current.delete(docId);
+              setIsGeneratingAi(false);
+              toast.dismiss(toastId);
+              toast.success(
+                <div 
+                  onClick={() => {
+                    toast.dismiss();
+                    window.dispatchEvent(new CustomEvent('app-navigate', { detail: { path: '/flashcards' } }));
+                  }}
+                  className="cursor-pointer text-xs flex flex-col gap-1"
+                >
+                  <span className="font-bold text-primary block">🎉 Tạo bộ Flashcards thành công!</span>
+                  <span>Nhấn vào đây để xem danh sách bộ thẻ ghi nhớ.</span>
+                </div>,
+                { duration: 8000 }
+              );
+              window.dispatchEvent(new CustomEvent('flashcard-created'));
+              if (callbacks.onSuccess) callbacks.onSuccess(statusRes.data);
+            }
+            if (status === 'failed') {
+              clearInterval(poll);
+              activeAiTasks.current.delete(docId);
+              setIsGeneratingAi(false);
+              toast.dismiss(toastId);
+              const errMsg = statusRes.data.error || 'Không thể tạo bộ Flashcards.';
+              toast.error(errMsg);
+              if (callbacks.onError) callbacks.onError(errMsg);
+            }
+          } catch {
+            clearInterval(poll);
+            activeAiTasks.current.delete(docId);
+            setIsGeneratingAi(false);
+            toast.dismiss(toastId);
+            toast.error('Lỗi kiểm tra trạng thái tạo Flashcards.');
+            if (callbacks.onError) callbacks.onError('Lỗi kiểm tra trạng thái.');
+          }
+        }, 2500);
+
+        setTimeout(() => {
+          clearInterval(poll);
+          activeAiTasks.current.delete(docId);
+          setIsGeneratingAi(false);
+        }, 180000);
+
+        return;
+      }
+
+      // Synchronous mode completion
+      activeAiTasks.current.delete(docId);
+      setIsGeneratingAi(false);
+      toast.dismiss(toastId);
+      toast.success(
+        <div 
+          onClick={() => {
+            toast.dismiss();
+            window.dispatchEvent(new CustomEvent('app-navigate', { detail: { path: '/flashcards' } }));
+          }}
+          className="cursor-pointer text-xs flex flex-col gap-1"
+        >
+          <span className="font-bold text-primary block">🎉 Tạo bộ Flashcards thành công!</span>
+          <span>Nhấn vào đây để mở và ôn tập ngay.</span>
+        </div>,
+        { duration: 8000 }
+      );
+      window.dispatchEvent(new CustomEvent('flashcard-created'));
+      if (callbacks.onSuccess) callbacks.onSuccess(res.data);
+    } catch (err) {
+      activeAiTasks.current.delete(docId);
+      setIsGeneratingAi(false);
+      toast.dismiss(toastId);
+      const errRes = err.response?.data;
+      if (errRes && errRes.error === 'content_not_changed') {
+        if (callbacks.onContentNotChanged) callbacks.onContentNotChanged();
+        return;
+      }
+      const errMsg = err.response?.data?.error || 'Không thể tạo bộ flashcard AI lúc này.';
+      toast.error(errMsg);
+      if (callbacks.onError) callbacks.onError(errMsg);
+    }
+  };
+
   return (
     <SocketContext.Provider
       value={{
@@ -352,7 +502,9 @@ export const SocketProvider = ({ children }) => {
         markAllAsRead,
         markAsRead,
         clearNotifications,
-        deleteNotification
+        deleteNotification,
+        generateFlashcardsInBackground,
+        isGeneratingAi
       }}
     >
       {children}
