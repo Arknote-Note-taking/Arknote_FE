@@ -214,6 +214,11 @@ const Flashcards = () => {
 
   useEffect(() => {
     fetchDecks();
+    const handleFlashcardCreated = () => {
+      fetchDecks();
+    };
+    window.addEventListener('flashcard-created', handleFlashcardCreated);
+    return () => window.removeEventListener('flashcard-created', handleFlashcardCreated);
   }, []);
 
   const handleCreateDeck = async (e) => {
@@ -417,11 +422,11 @@ const Flashcards = () => {
                     <div className="space-y-2">
                       <div>
                         <span className="text-[9px] bg-primary/15 text-primary font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Mặt trước</span>
-                        <p className="text-sm text-text-primary font-semibold mt-1">{card.front_text}</p>
+                        <p className="text-sm text-text-primary font-semibold mt-1 whitespace-pre-line">{card.front_text}</p>
                       </div>
                       <div className="pt-2 border-t border-border/50">
                         <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Mặt sau</span>
-                        <p className="text-sm text-text-secondary mt-1">{card.back_text}</p>
+                        <p className="text-sm text-text-secondary mt-1 whitespace-pre-line">{card.back_text}</p>
                       </div>
                     </div>
                   </div>
@@ -691,8 +696,8 @@ const Flashcards = () => {
                         <HelpCircle className="w-5 h-5" />
                         <span className="text-xs uppercase font-extrabold tracking-wider">{t('frontSide')}</span>
                       </div>
-                      <div className="flex-1 flex items-center justify-center text-center">
-                        <p className="text-lg font-bold text-text-primary leading-normal max-w-md">{cards[currentCardIndex].front_text}</p>
+                      <div className="flex-1 flex items-center justify-center text-center overflow-y-auto my-2 custom-scrollbar">
+                        <p className="text-lg font-bold text-text-primary leading-relaxed max-w-md whitespace-pre-line text-center">{cards[currentCardIndex].front_text}</p>
                       </div>
                       <div className="text-center text-xs text-text-secondary font-medium select-none">
                         {language === 'vi' ? '(Nhấp chuột để lật xem đáp án)' : '(Click to flip and view answer)'}
@@ -705,8 +710,8 @@ const Flashcards = () => {
                         <Eye className="w-5 h-5" />
                         <span className="text-xs uppercase font-extrabold tracking-wider text-primary">{t('backSide')}</span>
                       </div>
-                      <div className="flex-1 flex items-center justify-center text-center">
-                        <p className="text-lg font-extrabold text-primary-dark dark:text-primary leading-normal max-w-md">{cards[currentCardIndex].back_text}</p>
+                      <div className="flex-1 flex items-center justify-center text-left overflow-y-auto my-2 custom-scrollbar">
+                        <p className="text-base font-semibold text-primary-dark dark:text-primary leading-relaxed max-w-md whitespace-pre-line">{cards[currentCardIndex].back_text}</p>
                       </div>
                       <div className="text-center text-xs text-text-secondary font-medium select-none">
                         {language === 'vi' ? '(Nhấp chuột để lật lại)' : '(Click to flip back)'}
@@ -776,10 +781,10 @@ const Flashcards = () => {
                       <div className="flex items-start">
                         <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-text-secondary font-bold px-2 py-0.5 rounded-full shrink-0 mr-2 mt-0.5">#{idx + 1}</span>
                         <div className="space-y-1 flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-text-primary break-words">
+                          <p className="text-xs font-semibold text-text-primary break-words whitespace-pre-line">
                             <span className="text-text-secondary">{language === 'vi' ? 'Hỏi' : 'Q'}:</span> {card.front_text}
                           </p>
-                          <p className="text-xs text-primary font-medium break-words">
+                          <p className="text-xs text-primary font-medium break-words whitespace-pre-line">
                             <span className="text-text-secondary">{language === 'vi' ? 'Đáp' : 'A'}:</span> {card.back_text}
                           </p>
                         </div>
