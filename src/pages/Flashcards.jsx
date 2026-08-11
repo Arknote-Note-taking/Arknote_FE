@@ -7,6 +7,82 @@ import toast from 'react-hot-toast';
 import { useConfirm } from '../context/ConfirmContext';
 import { useLanguage } from '../context/LanguageContext';
 
+const splitKanjiFrontReading = (frontText) => {
+  const text = String(frontText || '').trim();
+  const match = text.match(/^(.+?)\s*[（(]([ぁ-ゖァ-ヺーa-zA-Z\s・]+)[）)]\s*$/);
+  if (!match || !/[\u3400-\u9fff]/.test(match[1])) {
+    return { front: text, reading: '' };
+  }
+
+  return {
+    front: match[1].trim(),
+    reading: match[2].trim()
+  };
+};
+
+const getDisplayFrontText = (card) => splitKanjiFrontReading(card?.front_text).front;
+
+const getDisplayBackText = (card) => {
+  const { reading } = splitKanjiFrontReading(card?.front_text);
+  const backText = String(card?.back_text || '').trim();
+  if (!reading || backText.includes(reading)) return backText;
+  return `Phiên âm / Cách đọc: ${reading}\n${backText}`;
+};
+
+const isComparisonFlashcardFront = (frontText) => {
+  const text = String(frontText || '').trim().toLowerCase();
+  const compactText = text.replace(/\s+/g, '');
+
+  return (
+    /\bvs\b|ｖｓ|v\.s\./i.test(text) ||
+    /so sánh|phan biet|phân biệt|khác nhau|違い|ちがい|使い分け/i.test(text) ||
+    /「[^」]+」\s*(?:vs|ｖｓ|v\.s\.|／|\/)\s*「[^」]+」/i.test(text) ||
+    /[^\s]+(?:\s+|[「」])(?:vs|ｖｓ|v\.s\.)(?:\s+|[「」])[^\s]+/i.test(text) ||
+    /[^\s]+[／/][^\s]+/.test(compactText)
+  );
+};
+
+const normalizeFlashcardsForDisplay = (cards = []) => (
+  cards.filter(card => !isComparisonFlashcardFront(card?.front_text))
+);
+
+const CARD_TERM_DELIMITERS = {
+  tab: '\t',
+  comma: ','
+};
+
+const CARD_ROW_DELIMITERS = {
+  newline: '\n',
+  semicolon: ';'
+};
+
+const parseBulkFlashcardText = (text, termDelimiterMode, customTermDelimiter, rowDelimiterMode, customRowDelimiter) => {
+  const source = String(text || '').trim();
+  const termDelimiter = termDelimiterMode === 'custom' ? customTermDelimiter : CARD_TERM_DELIMITERS[termDelimiterMode];
+  const rowDelimiter = rowDelimiterMode === 'custom' ? customRowDelimiter : CARD_ROW_DELIMITERS[rowDelimiterMode];
+
+  if (!source || !termDelimiter || !rowDelimiter) return [];
+
+  return source
+    .split(rowDelimiter)
+    .map(row => row.trim())
+    .filter(Boolean)
+    .map(row => {
+      const delimiterIndex = row.indexOf(termDelimiter);
+      if (delimiterIndex === -1) return null;
+
+      const frontText = row.slice(0, delimiterIndex).trim();
+      const backText = row.slice(delimiterIndex + termDelimiter.length).trim();
+      if (!frontText || !backText) return null;
+
+      return {
+        front_text: frontText,
+        back_text: backText
+      };
+    })
+    .filter(Boolean);
+};
+
 const Flashcards = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,7 +129,7 @@ const Flashcards = () => {
         try {
           const res = await API.get(`/flashcards/${sharedDeckId}`);
           setSharedDeck(res.data.deck);
-          setSharedCards(res.data.cards || []);
+          setSharedCards(normalizeFlashcardsForDisplay(res.data.cards || []));
         } catch (err) {
           console.error(err);
           toast.error(err.response?.data?.error || 'Không thể tải bộ thẻ chia sẻ. Bộ thẻ có thể không tồn tại hoặc chưa được bật chia sẻ công khai.');
@@ -121,6 +197,7 @@ const Flashcards = () => {
   const [reviewMode, setReviewMode] = useState(false);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [selectedCardIds, setSelectedCardIds] = useState([]);
 
   // Tab within active deck
   const [studyTab, setStudyTab] = useState('study'); // 'study' or 'manage'
@@ -136,8 +213,22 @@ const Flashcards = () => {
   const [cardFront, setCardFront] = useState('');
   const [cardBack, setCardBack] = useState('');
   const [editingCard, setEditingCard] = useState(null);
+  const [cardInputMode, setCardInputMode] = useState('single');
+  const [bulkCardText, setBulkCardText] = useState('');
+  const [termDelimiterMode, setTermDelimiterMode] = useState('tab');
+  const [rowDelimiterMode, setRowDelimiterMode] = useState('newline');
+  const [customTermDelimiter, setCustomTermDelimiter] = useState('');
+  const [customRowDelimiter, setCustomRowDelimiter] = useState('');
 
   const [generatingQuiz, setGeneratingQuiz] = useState(false);
+
+  const bulkPreviewCards = parseBulkFlashcardText(
+    bulkCardText,
+    termDelimiterMode,
+    customTermDelimiter,
+    rowDelimiterMode,
+    customRowDelimiter
+  );
 
   const handleCreateQuiz = async () => {
     if (!activeDeck || cards.length === 0) return;
@@ -276,7 +367,8 @@ const Flashcards = () => {
     try {
       const res = await API.get(`/flashcards/${deck.id}`);
       setActiveDeck(res.data.deck);
-      setCards(res.data.cards || []);
+      setCards(normalizeFlashcardsForDisplay(res.data.cards || []));
+      setSelectedCardIds([]);
       setCurrentCardIndex(0);
       setIsFlipped(false);
       setStudyTab('study');
@@ -343,10 +435,50 @@ const Flashcards = () => {
     }
   };
 
+  const resetCardModalState = () => {
+    setShowCardModal(false);
+    setCardFront('');
+    setCardBack('');
+    setEditingCard(null);
+    setCardInputMode('single');
+    setBulkCardText('');
+    setTermDelimiterMode('tab');
+    setRowDelimiterMode('newline');
+    setCustomTermDelimiter('');
+    setCustomRowDelimiter('');
+  };
+
+  const handleCreateBulkCards = async (e) => {
+    e.preventDefault();
+    if (editingCard) return;
+    if (bulkPreviewCards.length === 0) {
+      return toast.error(language === 'vi' ? 'Không có thẻ hợp lệ để lưu.' : 'No valid cards to save.');
+    }
+
+    try {
+      const res = await API.post(`/flashcards/${activeDeck.id}/cards/bulk`, {
+        cards: bulkPreviewCards
+      });
+      const newCards = res.data.cards || [];
+      toast.success(language === 'vi' ? `Đã thêm ${newCards.length} thẻ ghi nhớ` : `Added ${newCards.length} flashcards`);
+      setCards(prev => [...prev, ...newCards]);
+      resetCardModalState();
+    } catch (err) {
+      toast.error(
+        err.response?.status === 404
+          ? (language === 'vi'
+            ? 'Backend chưa có API lưu nhiều thẻ. Vui lòng deploy/restart backend để bật lưu hàng loạt.'
+            : 'Backend bulk save API is not available. Please deploy/restart backend.')
+          : (err.response?.data?.error || (language === 'vi' ? 'Lỗi khi lưu thẻ ghi nhớ.' : 'Failed to save flashcards.'))
+      );
+    }
+  };
+
   const handleOpenEditCard = (card) => {
     setEditingCard(card);
     setCardFront(card.front_text);
     setCardBack(card.back_text);
+    setCardInputMode('single');
     setShowCardModal(true);
   };
 
@@ -361,11 +493,61 @@ const Flashcards = () => {
       await API.delete(`/flashcards/cards/${cardId}`);
       toast.success(language === 'vi' ? 'Đã xóa thẻ ghi nhớ thành công' : 'Flashcard deleted successfully');
       setCards(prev => prev.filter(c => c.id !== cardId));
+      setSelectedCardIds(prev => prev.filter(id => id !== cardId));
       if (currentCardIndex >= cards.length - 1 && currentCardIndex > 0) {
         setCurrentCardIndex(prev => prev - 1);
       }
     } catch (err) {
       toast.error(language === 'vi' ? 'Xóa thẻ thất bại.' : 'Failed to delete card.');
+    }
+  };
+
+  const toggleSelectCard = (cardId) => {
+    setSelectedCardIds(prev => (
+      prev.includes(cardId)
+        ? prev.filter(id => id !== cardId)
+        : [...prev, cardId]
+    ));
+  };
+
+  const toggleSelectAllCards = () => {
+    setSelectedCardIds(prev => (
+      prev.length === cards.length ? [] : cards.map(card => card.id)
+    ));
+  };
+
+  const handleDeleteSelectedCards = async () => {
+    if (selectedCardIds.length === 0) return;
+    const isConfirmed = await confirm(
+      language === 'vi'
+        ? `Bạn có chắc muốn xóa ${selectedCardIds.length} thẻ ghi nhớ đã chọn?`
+        : `Are you sure you want to delete ${selectedCardIds.length} selected flashcards?`
+    );
+    if (!isConfirmed) return;
+
+    const idsToDelete = [...selectedCardIds];
+    const previousCards = cards;
+    const previousIndex = currentCardIndex;
+    const deletedIds = new Set(idsToDelete);
+
+    setCards(prev => prev.filter(card => !deletedIds.has(card.id)));
+    setSelectedCardIds([]);
+    setCurrentCardIndex(prev => Math.min(prev, Math.max(cards.length - idsToDelete.length - 1, 0)));
+
+    try {
+      try {
+        await API.post('/flashcards/cards/bulk-delete', { cardIds: idsToDelete });
+      } catch (err) {
+        if (err.response?.status !== 404) throw err;
+        await API.delete('/flashcards/cards/bulk', { data: { cardIds: idsToDelete } });
+      }
+
+      toast.success(language === 'vi' ? `Đã xóa ${deletedIds.size} thẻ ghi nhớ` : `Deleted ${deletedIds.size} flashcards`);
+    } catch (err) {
+      setCards(previousCards);
+      setSelectedCardIds(idsToDelete);
+      setCurrentCardIndex(previousIndex);
+      toast.error(err.response?.data?.error || (language === 'vi' ? 'Xóa nhiều thẻ thất bại. Vui lòng deploy/restart backend để bật API xóa nhiều.' : 'Failed to delete selected cards. Please deploy/restart backend to enable bulk delete API.'));
     }
   };
 
@@ -422,11 +604,11 @@ const Flashcards = () => {
                     <div className="space-y-2">
                       <div>
                         <span className="text-[9px] bg-primary/15 text-primary font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Mặt trước</span>
-                        <p className="text-sm text-text-primary font-semibold mt-1 whitespace-pre-line">{card.front_text}</p>
+                        <p className="text-sm text-text-primary font-semibold mt-1 whitespace-pre-line">{getDisplayFrontText(card)}</p>
                       </div>
                       <div className="pt-2 border-t border-border/50">
                         <span className="text-[9px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">Mặt sau</span>
-                        <p className="text-sm text-text-secondary mt-1 whitespace-pre-line">{card.back_text}</p>
+                        <p className="text-sm text-text-secondary mt-1 whitespace-pre-line">{getDisplayBackText(card)}</p>
                       </div>
                     </div>
                   </div>
@@ -687,33 +869,33 @@ const Flashcards = () => {
                 {/* Card Container */}
                 <div
                   onClick={() => setIsFlipped(!isFlipped)}
-                  className="perspective-1000 w-full h-80 cursor-pointer"
+                  className="perspective-1000 w-full h-[24rem] sm:h-[26rem] cursor-pointer"
                 >
                   <div className={`relative w-full h-full duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
                     {/* Front Side */}
-                    <div className="absolute inset-0 w-full h-full bg-surface border-2 border-border/80 rounded-xl p-8 flex flex-col justify-between shadow-lg backface-hidden">
-                      <div className="flex items-center space-x-2 text-primary">
+                    <div className="absolute inset-0 w-full h-full bg-surface border-2 border-border/80 rounded-xl p-8 flex flex-col shadow-lg backface-hidden overflow-hidden">
+                      <div className="flex items-center space-x-2 text-primary shrink-0">
                         <HelpCircle className="w-5 h-5" />
                         <span className="text-xs uppercase font-extrabold tracking-wider">{t('frontSide')}</span>
                       </div>
-                      <div className="flex-1 flex items-center justify-center text-center overflow-y-auto my-2 custom-scrollbar">
-                        <p className="text-lg font-bold text-text-primary leading-relaxed max-w-md whitespace-pre-line text-center">{cards[currentCardIndex].front_text}</p>
+                      <div className="flex-1 min-h-0 flex items-center justify-center text-center overflow-y-auto overscroll-contain my-4 pr-2 pb-8 custom-scrollbar">
+                        <p className="text-lg font-bold text-text-primary leading-relaxed max-w-md whitespace-pre-line text-center">{getDisplayFrontText(cards[currentCardIndex])}</p>
                       </div>
-                      <div className="text-center text-xs text-text-secondary font-medium select-none">
+                      <div className="text-center text-xs text-text-secondary font-medium select-none shrink-0 pt-3 border-t border-border/50 bg-surface">
                         {language === 'vi' ? '(Nhấp chuột để lật xem đáp án)' : '(Click to flip and view answer)'}
                       </div>
                     </div>
 
                     {/* Back Side */}
-                    <div className="absolute inset-0 w-full h-full bg-primary/5 dark:bg-primary/10 border-2 border-primary/30 rounded-xl p-8 flex flex-col justify-between shadow-lg rotate-y-180 backface-hidden">
-                      <div className="flex items-center space-x-2 text-primary">
+                    <div className="absolute inset-0 w-full h-full bg-primary/5 dark:bg-primary/10 border-2 border-primary/30 rounded-xl p-8 flex flex-col shadow-lg rotate-y-180 backface-hidden overflow-hidden">
+                      <div className="flex items-center space-x-2 text-primary shrink-0">
                         <Eye className="w-5 h-5" />
                         <span className="text-xs uppercase font-extrabold tracking-wider text-primary">{t('backSide')}</span>
                       </div>
-                      <div className="flex-1 flex items-center justify-center text-left overflow-y-auto my-2 custom-scrollbar">
-                        <p className="text-base font-semibold text-primary-dark dark:text-primary leading-relaxed max-w-md whitespace-pre-line">{cards[currentCardIndex].back_text}</p>
+                      <div className="flex-1 min-h-0 flex items-start justify-center text-left overflow-y-auto overscroll-contain my-4 pr-2 pb-8 custom-scrollbar">
+                        <p className="text-base font-semibold text-primary-dark dark:text-primary leading-relaxed max-w-md w-full whitespace-pre-line">{getDisplayBackText(cards[currentCardIndex])}</p>
                       </div>
-                      <div className="text-center text-xs text-text-secondary font-medium select-none">
+                      <div className="text-center text-xs text-text-secondary font-medium select-none shrink-0 pt-3 border-t border-primary/20 bg-primary/5 dark:bg-primary/10">
                         {language === 'vi' ? '(Nhấp chuột để lật lại)' : '(Click to flip back)'}
                       </div>
                     </div>
@@ -746,7 +928,10 @@ const Flashcards = () => {
                           setCurrentCardIndex(prev => prev + 1);
                         }, 150);
                       } else {
-                        toast.success(language === 'vi' ? '🎉 Bạn đã học hết tất cả các thẻ trong bộ!' : '🎉 You have reviewed all cards in this deck!');
+                        setIsFlipped(false);
+                        setTimeout(() => {
+                          setCurrentCardIndex(0);
+                        }, 150);
                       }
                     }}
                     className="flex-1 bg-primary hover:bg-primary-dark text-white font-bold text-xs py-3 px-4 rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer shadow-md shadow-primary/20"
@@ -759,18 +944,45 @@ const Flashcards = () => {
             )
           ) : (
             <div className="space-y-4 animate-fade-in">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-wrap justify-between items-center gap-3">
                 <h3 className="text-sm font-bold text-text-primary">
                   {language === 'vi' ? 'Tất cả các thẻ trong bộ' : 'All cards in deck'}
                 </h3>
                 {activeDeck?.user_id === user?.id && (
-                  <button
-                    onClick={() => { setEditingCard(null); setCardFront(''); setCardBack(''); setShowCardModal(true); }}
-                    className="flex items-center space-x-1.5 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{language === 'vi' ? 'Thêm thẻ mới' : 'Add new card'}</span>
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {cards.length > 0 && (
+                      <>
+                        <button
+                          onClick={toggleSelectAllCards}
+                          className="flex items-center space-x-1.5 border border-border bg-surface hover:bg-black/5 dark:hover:bg-white/5 text-text-primary px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>
+                            {selectedCardIds.length === cards.length
+                              ? (language === 'vi' ? 'Bỏ chọn tất cả' : 'Clear all')
+                              : (language === 'vi' ? 'Chọn tất cả' : 'Select all')
+                            }
+                          </span>
+                        </button>
+                        {selectedCardIds.length > 0 && (
+                          <button
+                            onClick={handleDeleteSelectedCards}
+                            className="flex items-center space-x-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{language === 'vi' ? `Xóa ${selectedCardIds.length} thẻ` : `Delete ${selectedCardIds.length}`}</span>
+                          </button>
+                        )}
+                      </>
+                    )}
+                    <button
+                      onClick={() => { setEditingCard(null); setCardFront(''); setCardBack(''); setCardInputMode('single'); setBulkCardText(''); setShowCardModal(true); }}
+                      className="flex items-center space-x-1.5 bg-[#52B788] hover:bg-[#409c71] text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{language === 'vi' ? 'Thêm thẻ mới' : 'Add new card'}</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -779,13 +991,22 @@ const Flashcards = () => {
                   <div key={card.id} className="bg-surface border border-border rounded-2xl p-4 flex justify-between items-start gap-4 hover:shadow-xs transition-shadow">
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-start">
+                        {(activeDeck?.user_id === user?.id || user?.role === 'admin') && (
+                          <input
+                            type="checkbox"
+                            checked={selectedCardIds.includes(card.id)}
+                            onChange={() => toggleSelectCard(card.id)}
+                            className="mt-1 mr-3 h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer shrink-0"
+                            aria-label={language === 'vi' ? `Chọn thẻ ${idx + 1}` : `Select card ${idx + 1}`}
+                          />
+                        )}
                         <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-text-secondary font-bold px-2 py-0.5 rounded-full shrink-0 mr-2 mt-0.5">#{idx + 1}</span>
                         <div className="space-y-1 flex-1 min-w-0">
                           <p className="text-xs font-semibold text-text-primary break-words whitespace-pre-line">
-                            <span className="text-text-secondary">{language === 'vi' ? 'Hỏi' : 'Q'}:</span> {card.front_text}
+                            <span className="text-text-secondary">{language === 'vi' ? 'Hỏi' : 'Q'}:</span> {getDisplayFrontText(card)}
                           </p>
                           <p className="text-xs text-primary font-medium break-words whitespace-pre-line">
-                            <span className="text-text-secondary">{language === 'vi' ? 'Đáp' : 'A'}:</span> {card.back_text}
+                            <span className="text-text-secondary">{language === 'vi' ? 'Đáp' : 'A'}:</span> {getDisplayBackText(card)}
                           </p>
                         </div>
                       </div>
@@ -877,49 +1098,177 @@ const Flashcards = () => {
 
       {/* Add / Edit Card Modal */}
       {showCardModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[300]">
-          <div className="bg-surface border border-border w-full max-w-md p-6 rounded-xl shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-text-primary">
-              {editingCard ? (language === 'vi' ? 'Chỉnh sửa thẻ ghi nhớ' : 'Edit flashcard') : (language === 'vi' ? 'Thêm thẻ ghi nhớ mới' : 'Add new flashcard')}
-            </h3>
-            <form onSubmit={handleCreateOrUpdateCard} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-text-secondary">{language === 'vi' ? 'Mặt trước (Câu hỏi / Khái niệm)' : 'Front side (Question / Concept)'}</label>
-                <textarea
-                  value={cardFront}
-                  onChange={e => setCardFront(e.target.value)}
-                  placeholder={language === 'vi' ? "Nhập câu hỏi ngắn hoặc thuật ngữ..." : "Enter short question or term..."}
-                  rows={3}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-primary text-text-primary resize-none"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-text-secondary">{language === 'vi' ? 'Mặt sau (Câu trả lời / Định nghĩa)' : 'Back side (Answer / Definition)'}</label>
-                <textarea
-                  value={cardBack}
-                  onChange={e => setCardBack(e.target.value)}
-                  placeholder={language === 'vi' ? "Nhập câu trả lời ngắn gọn hoặc giải nghĩa..." : "Enter short answer or definition..."}
-                  rows={3}
-                  className="w-full bg-background border border-border rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-primary text-text-primary resize-none"
-                />
-              </div>
-              <div className="flex space-x-3 pt-2">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[300] p-4">
+          <div className="bg-surface border border-border w-full max-w-5xl max-h-[92vh] overflow-y-auto p-6 rounded-xl shadow-xl space-y-4 custom-scrollbar">
+            <div className="flex items-start justify-between gap-4">
+              <h3 className="text-lg font-bold text-text-primary">
+                {editingCard ? (language === 'vi' ? 'Chỉnh sửa thẻ ghi nhớ' : 'Edit flashcard') : (language === 'vi' ? 'Thêm thẻ ghi nhớ mới' : 'Add new flashcard')}
+              </h3>
+              <button
+                type="button"
+                onClick={resetCardModalState}
+                className="p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-black/5 dark:hover:bg-white/5 transition cursor-pointer"
+                aria-label={language === 'vi' ? 'Đóng' : 'Close'}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!editingCard && (
+              <div className="grid grid-cols-2 gap-2 bg-background border border-border rounded-xl p-1">
                 <button
                   type="button"
-                  onClick={() => { setShowCardModal(false); setEditingCard(null); setCardFront(''); setCardBack(''); }}
-                  className="flex-1 py-2.5 border border-border text-text-secondary rounded-xl text-sm font-semibold cursor-pointer hover:bg-black/5 transition"
+                  onClick={() => setCardInputMode('single')}
+                  className={`py-2 rounded-lg text-xs font-bold transition cursor-pointer ${cardInputMode === 'single' ? 'bg-primary text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
                 >
-                  {t('cancel')}
+                  {language === 'vi' ? 'Một thẻ' : 'Single card'}
                 </button>
                 <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold cursor-pointer hover:bg-primary-dark transition"
+                  type="button"
+                  onClick={() => setCardInputMode('bulk')}
+                  className={`py-2 rounded-lg text-xs font-bold transition cursor-pointer ${cardInputMode === 'bulk' ? 'bg-primary text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
                 >
-                  {language === 'vi' ? 'Lưu lại' : 'Save'}
+                  {language === 'vi' ? 'Nhập nhiều thẻ' : 'Bulk import'}
                 </button>
               </div>
-            </form>
+            )}
+
+            {(editingCard || cardInputMode === 'single') ? (
+              <form onSubmit={handleCreateOrUpdateCard} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-text-secondary">{language === 'vi' ? 'Mặt trước (Câu hỏi / Khái niệm)' : 'Front side (Question / Concept)'}</label>
+                  <textarea
+                    value={cardFront}
+                    onChange={e => setCardFront(e.target.value)}
+                    placeholder={language === 'vi' ? "Nhập câu hỏi ngắn hoặc thuật ngữ..." : "Enter short question or term..."}
+                    rows={3}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-primary text-text-primary resize-none"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-text-secondary">{language === 'vi' ? 'Mặt sau (Câu trả lời / Định nghĩa)' : 'Back side (Answer / Definition)'}</label>
+                  <textarea
+                    value={cardBack}
+                    onChange={e => setCardBack(e.target.value)}
+                    placeholder={language === 'vi' ? "Nhập câu trả lời ngắn gọn hoặc giải nghĩa..." : "Enter short answer or definition..."}
+                    rows={3}
+                    className="w-full bg-background border border-border rounded-xl px-4 py-2 text-xs focus:outline-none focus:border-primary text-text-primary resize-none"
+                  />
+                </div>
+                <div className="flex space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetCardModalState}
+                    className="flex-1 py-2.5 border border-border text-text-secondary rounded-xl text-sm font-semibold cursor-pointer hover:bg-black/5 transition"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold cursor-pointer hover:bg-primary-dark transition"
+                  >
+                    {language === 'vi' ? 'Lưu lại' : 'Save'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleCreateBulkCards} className="space-y-5">
+                <div className="space-y-2">
+                  <div className="text-sm text-text-secondary">
+                    <span className="font-extrabold text-text-primary">{language === 'vi' ? 'Nhập dữ liệu.' : 'Enter data.'}</span>{' '}
+                    {language === 'vi' ? 'Chép và dán dữ liệu ở đây (từ Word, Excel, Google Docs, v.v.)' : 'Copy and paste data here (from Word, Excel, Google Docs, etc.)'}
+                  </div>
+                  <textarea
+                    value={bulkCardText}
+                    onChange={e => setBulkCardText(e.target.value)}
+                    placeholder={language === 'vi' ? 'Từ 1\tĐịnh nghĩa 1\nTừ 2\tĐịnh nghĩa 2\nTừ 3\tĐịnh nghĩa 3' : 'Term 1\tDefinition 1\nTerm 2\tDefinition 2\nTerm 3\tDefinition 3'}
+                    rows={9}
+                    className="w-full bg-background border-2 border-border rounded-none px-4 py-3 text-sm focus:outline-none focus:border-primary text-text-primary resize-y whitespace-pre-wrap"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-5">
+                  <div className="space-y-3">
+                    <p className="text-sm font-extrabold text-text-primary">{language === 'vi' ? 'Giữa thuật ngữ và định nghĩa' : 'Between term and definition'}</p>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                      <input type="radio" checked={termDelimiterMode === 'tab'} onChange={() => setTermDelimiterMode('tab')} />
+                      <span>Tab</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                      <input type="radio" checked={termDelimiterMode === 'comma'} onChange={() => setTermDelimiterMode('comma')} />
+                      <span>{language === 'vi' ? 'Phẩy' : 'Comma'}</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                      <input type="radio" checked={termDelimiterMode === 'custom'} onChange={() => setTermDelimiterMode('custom')} />
+                      <input
+                        value={customTermDelimiter}
+                        onChange={e => { setCustomTermDelimiter(e.target.value); setTermDelimiterMode('custom'); }}
+                        placeholder={language === 'vi' ? 'Tùy chỉnh' : 'Custom'}
+                        className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary text-text-primary"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm font-extrabold text-text-primary">{language === 'vi' ? 'Giữa các thẻ' : 'Between cards'}</p>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                      <input type="radio" checked={rowDelimiterMode === 'newline'} onChange={() => setRowDelimiterMode('newline')} />
+                      <span>{language === 'vi' ? 'Dòng mới' : 'New line'}</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                      <input type="radio" checked={rowDelimiterMode === 'semicolon'} onChange={() => setRowDelimiterMode('semicolon')} />
+                      <span>{language === 'vi' ? 'Chấm phẩy' : 'Semicolon'}</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                      <input type="radio" checked={rowDelimiterMode === 'custom'} onChange={() => setRowDelimiterMode('custom')} />
+                      <input
+                        value={customRowDelimiter}
+                        onChange={e => { setCustomRowDelimiter(e.target.value); setRowDelimiterMode('custom'); }}
+                        placeholder={language === 'vi' ? 'Tùy chỉnh' : 'Custom'}
+                        className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary text-text-primary"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-4">
+                  <h4 className="text-base font-extrabold text-text-primary">
+                    {language === 'vi' ? 'Xem trước' : 'Preview'} <span className="text-sm font-medium text-text-secondary">{bulkPreviewCards.length} {language === 'vi' ? 'thẻ' : 'cards'}</span>
+                  </h4>
+                  {bulkPreviewCards.length > 0 ? (
+                    <div className="max-h-48 overflow-y-auto custom-scrollbar border border-border rounded-xl divide-y divide-border">
+                      {bulkPreviewCards.slice(0, 20).map((card, idx) => (
+                        <div key={`${card.front_text}-${idx}`} className="grid md:grid-cols-2 gap-3 p-3 text-xs">
+                          <p className="font-semibold text-text-primary break-words whitespace-pre-line">{card.front_text}</p>
+                          <p className="text-text-secondary break-words whitespace-pre-line">{card.back_text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-text-secondary">{language === 'vi' ? 'Không có nội dung để xem trước' : 'No content to preview'}</p>
+                  )}
+                </div>
+
+                <div className="flex space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={resetCardModalState}
+                    className="flex-1 py-2.5 border border-border text-text-secondary rounded-xl text-sm font-semibold cursor-pointer hover:bg-black/5 transition"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={bulkPreviewCards.length === 0}
+                    className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold cursor-pointer hover:bg-primary-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {language === 'vi' ? `Lưu ${bulkPreviewCards.length} thẻ` : `Save ${bulkPreviewCards.length} cards`}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

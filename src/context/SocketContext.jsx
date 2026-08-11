@@ -385,6 +385,7 @@ export const SocketProvider = ({ children }) => {
       const res = await API.post('/flashcards/generate', {
         documentId: docId,
         count: params.count,
+        requestedCount: params.count,
         forceRegenerate: params.forceRegenerate,
         ignoreHashCheck: params.ignoreHashCheck,
         mode: params.mode

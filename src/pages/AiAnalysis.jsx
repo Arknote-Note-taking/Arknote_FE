@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useContext } from 'react';
 import API from '../services/api';
 import toast from 'react-hot-toast';
 import { AuthContext } from '../context/AuthContext';
+import { SocketContext } from '../context/SocketContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -82,8 +83,32 @@ const MarkdownRenderer = ({ content }) => (
   </ReactMarkdown>
 );
 
+const isFlashcardRequest = (text) => {
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  return /\bflash\s*card(s)?\b|\bflashcard(s)?\b|\bthe ghi nho\b|\bthẻ ghi nhớ\b|\btao the\b|\btạo thẻ\b/.test(normalized)
+    && /\btao\b|\btạo\b|\bgenerate\b|\bcreate\b|\blam\b|\blàm\b/.test(normalized);
+};
+
+const extractFlashcardCount = (text) => {
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  const match = normalized.match(/(?:tao|create|generate|lam|voi|khoang|can)?\s*(\d+)\s*(?:flash\s*cards?|flashcards?|the ghi nho|the|cards?|tu)?/i);
+  if (!match) return undefined;
+  const count = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(count)) return undefined;
+  return Math.max(count, 1);
+};
+
 const AiAnalysis = () => {
   const { user, refreshProfile } = useContext(AuthContext);
+  const { generateFlashcardsInBackground } = useContext(SocketContext);
   const { confirm } = useConfirm();
   const { language, t } = useLanguage();
   const [file, setFile] = useState(null);
@@ -349,6 +374,60 @@ const AiAnalysis = () => {
     }
   };
 
+  const startFlashcardsFromChat = (userMsg, activeChatId, updatedMessagesWithUser) => {
+    if (!contextDocId) {
+      if (contextFolderId) {
+        return {
+          role: 'ai',
+          text: 'Hiện tại tạo flashcard cần một tài liệu cụ thể. Vui lòng chọn một tài liệu trong thư mục rồi yêu cầu tạo flashcard lại.'
+        };
+      }
+
+      return {
+        role: 'ai',
+        text: 'Vui lòng chọn hoặc tải lên một tài liệu trước khi yêu cầu tạo flashcard.'
+      };
+    }
+
+    const count = extractFlashcardCount(userMsg);
+    const docTitle = activeDoc?.title || 'tài liệu đã chọn';
+    const runningMessage = {
+      role: 'ai',
+      text: `AI đang tạo ${count ? `đúng ${count} thẻ flashcard` : 'flashcard'} từ "${docTitle}" trong nền. Bạn có thể chuyển sang tab hoặc trang khác, khi tạo xong hệ thống sẽ thông báo để bạn vào Thẻ ghi nhớ kiểm tra.`
+    };
+
+    generateFlashcardsInBackground(
+      count ? { documentId: contextDocId, count } : { documentId: contextDocId },
+      {
+        onSuccess: async (result) => {
+          const deck = result?.result?.deck || result?.deck;
+          const cards = result?.result?.cards || result?.cards || [];
+          const cardCount = cards.length || count || 0;
+          const doneMessage = {
+            role: 'ai',
+            text: `Đã tạo xong và lưu bộ flashcard "${deck?.title || docTitle}" vào phần Thẻ ghi nhớ${cardCount ? ` (${cardCount} thẻ)` : ''}. Bạn có thể mở mục Thẻ ghi nhớ để học và chỉnh sửa bộ thẻ này.`
+          };
+          const finalMessages = [...updatedMessagesWithUser, doneMessage];
+          await API.put(`/ai/chats/${activeChatId}`, { messages: finalMessages });
+          setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalMessages } : c));
+          refreshProfile();
+        },
+        onError: async (errorMessage) => {
+          const errorText = errorMessage || 'Không thể tạo flashcard lúc này.';
+          const finalMessages = [...updatedMessagesWithUser, { role: 'ai', text: errorText }];
+          await API.put(`/ai/chats/${activeChatId}`, { messages: finalMessages });
+          setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalMessages } : c));
+        }
+      }
+    );
+
+    return {
+      role: 'ai',
+      flashcardsStarted: true,
+      text: runningMessage.text
+    };
+  };
+
   const handleSendChat = async (directMsg) => {
     const userMsg = typeof directMsg === 'string' ? directMsg : message.trim();
     if (!userMsg) return;
@@ -390,6 +469,15 @@ const AiAnalysis = () => {
     setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: updatedMessagesWithUser } : c));
 
     try {
+      if (isFlashcardRequest(userMsg)) {
+        const flashcardMessage = startFlashcardsFromChat(userMsg, activeChatId, updatedMessagesWithUser);
+        const finalMessages = [...updatedMessagesWithUser, flashcardMessage];
+        await API.put(`/ai/chats/${activeChatId}`, { messages: finalMessages });
+        setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: finalMessages } : c));
+        setChatLoading(false);
+        return;
+      }
+
       const localUpdatedMsgs = [...updatedMessagesWithUser, { role: 'ai', text: '' }];
       setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: localUpdatedMsgs } : c));
 
