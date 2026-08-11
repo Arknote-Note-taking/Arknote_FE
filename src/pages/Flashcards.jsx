@@ -879,7 +879,7 @@ const Flashcards = () => {
                         <span className="text-xs uppercase font-extrabold tracking-wider">{t('frontSide')}</span>
                       </div>
                       <div className="flex-1 min-h-0 flex items-center justify-center text-center overflow-y-auto overscroll-contain my-4 pr-2 pb-8 custom-scrollbar">
-                        <p className="text-lg font-bold text-text-primary leading-relaxed max-w-md whitespace-pre-line text-center">{getDisplayFrontText(cards[currentCardIndex])}</p>
+                        <p className="text-3xl sm:text-4xl font-extrabold text-text-primary leading-relaxed max-w-md whitespace-pre-line text-center">{getDisplayFrontText(cards[currentCardIndex])}</p>
                       </div>
                       <div className="text-center text-xs text-text-secondary font-medium select-none shrink-0 pt-3 border-t border-border/50 bg-surface">
                         {language === 'vi' ? '(Nhấp chuột để lật xem đáp án)' : '(Click to flip and view answer)'}
@@ -892,8 +892,8 @@ const Flashcards = () => {
                         <Eye className="w-5 h-5" />
                         <span className="text-xs uppercase font-extrabold tracking-wider text-primary">{t('backSide')}</span>
                       </div>
-                      <div className="flex-1 min-h-0 flex items-start justify-center text-left overflow-y-auto overscroll-contain my-4 pr-2 pb-8 custom-scrollbar">
-                        <p className="text-base font-semibold text-primary-dark dark:text-primary leading-relaxed max-w-md w-full whitespace-pre-line">{getDisplayBackText(cards[currentCardIndex])}</p>
+                      <div className="flex-1 min-h-0 flex items-center justify-center text-center overflow-y-auto overscroll-contain my-4 pr-2 pb-8 custom-scrollbar">
+                        <p className="text-base font-semibold text-primary-dark dark:text-primary leading-relaxed max-w-md w-full whitespace-pre-line text-center">{getDisplayBackText(cards[currentCardIndex])}</p>
                       </div>
                       <div className="text-center text-xs text-text-secondary font-medium select-none shrink-0 pt-3 border-t border-primary/20 bg-primary/5 dark:bg-primary/10">
                         {language === 'vi' ? '(Nhấp chuột để lật lại)' : '(Click to flip back)'}
