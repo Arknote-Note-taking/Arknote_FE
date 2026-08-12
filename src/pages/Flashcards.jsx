@@ -47,6 +47,7 @@ const normalizeFlashcardsForDisplay = (cards = []) => (
 );
 
 const getStudyProgressKey = (deckId) => `arknote:flashcards:study-progress:${deckId}`;
+const ACTIVE_STUDY_DECK_KEY = 'arknote:flashcards:active-study-deck';
 
 const readStudyProgress = (deckId) => {
   if (!deckId) return null;
@@ -73,6 +74,31 @@ const clearStudyProgress = (deckId) => {
     window.localStorage.removeItem(getStudyProgressKey(deckId));
   } catch {
     // Ignore storage failures so reset still works in memory.
+  }
+};
+
+const readActiveStudyDeckId = () => {
+  try {
+    return window.localStorage.getItem(ACTIVE_STUDY_DECK_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const writeActiveStudyDeckId = (deckId) => {
+  if (!deckId) return;
+  try {
+    window.localStorage.setItem(ACTIVE_STUDY_DECK_KEY, deckId);
+  } catch {
+    // Ignore storage failures so navigation still works.
+  }
+};
+
+const clearActiveStudyDeckId = () => {
+  try {
+    window.localStorage.removeItem(ACTIVE_STUDY_DECK_KEY);
+  } catch {
+    // Ignore storage failures so navigation still works.
   }
 };
 
@@ -351,11 +377,33 @@ const Flashcards = () => {
     }
   };
 
+  const restoreStudyDeck = async (deckId) => {
+    if (!deckId || sharedDeckId) return false;
+    try {
+      const res = await API.get(`/flashcards/${deckId}`);
+      const normalizedCards = normalizeFlashcardsForDisplay(res.data.cards || []);
+      const orderedCards = applySavedCardOrder(deckId, normalizedCards);
+      setActiveDeck(res.data.deck);
+      setCards(orderedCards);
+      setSelectedCardIds([]);
+      setCurrentCardIndex(getSavedCardIndex(deckId, orderedCards));
+      setIsFlipped(false);
+      setStudyTab('study');
+      setReviewMode(true);
+      writeActiveStudyDeckId(deckId);
+      return true;
+    } catch {
+      clearActiveStudyDeckId();
+      return false;
+    }
+  };
+
   const fetchDecks = async () => {
     try {
       setLoading(true);
       const res = await API.get('/flashcards');
       setDecks(res.data || []);
+      await restoreStudyDeck(readActiveStudyDeckId());
     } catch (err) {
       console.error(err);
       toast.error('Không thể tải các bộ thẻ ghi nhớ.');
@@ -436,6 +484,7 @@ const Flashcards = () => {
       setIsFlipped(false);
       setStudyTab('study');
       setReviewMode(true);
+      writeActiveStudyDeckId(deck.id);
     } catch (err) {
       toast.error('Không thể tải chi tiết bộ thẻ.');
     }
@@ -456,11 +505,15 @@ const Flashcards = () => {
     setIsFlipped(false);
   }, [cards.length, currentCardIndex]);
 
-  const handleResetStudyProgress = () => {
+  const handleResetStudyProgress = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     if (!activeDeck?.id) return;
     clearStudyProgress(activeDeck.id);
     setIsFlipped(false);
     setCurrentCardIndex(0);
+    setStudyTab('study');
+    setReviewMode(true);
     toast.success(language === 'vi' ? '\u0110\u00e3 reset ti\u1ebfn \u0111\u1ed9 h\u1ecdc.' : 'Study progress reset.');
   };
 
@@ -476,6 +529,12 @@ const Flashcards = () => {
       updatedAt: new Date().toISOString()
     });
     toast.success(language === 'vi' ? '\u0110\u00e3 tr\u1ed9n th\u1ee9 t\u1ef1 flashcard.' : 'Flashcards shuffled.');
+  };
+
+  const handleBackToDeckList = () => {
+    clearActiveStudyDeckId();
+    setReviewMode(false);
+    setActiveDeck(null);
   };
 
   const handleSubmitGrade = async (grade) => {
@@ -496,6 +555,7 @@ const Flashcards = () => {
       } else {
         toast.success('Chúc mừng! Bạn đã hoàn thành ôn tập bộ thẻ này!');
         clearStudyProgress(activeDeck?.id);
+        clearActiveStudyDeckId();
         setReviewMode(false);
         setActiveDeck(null);
         fetchDecks();
@@ -906,7 +966,7 @@ const Flashcards = () => {
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <button
-              onClick={() => { setReviewMode(false); setActiveDeck(null); }}
+              onClick={handleBackToDeckList}
               className="flex items-center space-x-2 text-text-secondary hover:text-text-primary text-sm font-semibold cursor-pointer transition"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -968,12 +1028,6 @@ const Flashcards = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="h-2 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${((currentCardIndex + 1) / cards.length) * 100}%` }}
-                    />
-                  </div>
                   <div className="flex flex-wrap gap-2 px-2">
                     <button
                       type="button"
