@@ -7,6 +7,10 @@ import { AuthContext } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 const TIME_LIMIT = 1200; // 20 minutes in seconds
+const QUESTION_PANEL_VISIBLE_LIMIT = 50;
+const QUESTION_PANEL_COLUMNS = 5;
+const QUESTION_BUTTON_HEIGHT = 36;
+const QUESTION_BUTTON_GAP = 8;
 
 const TakeQuiz = () => {
   const { id: quizId } = useParams();
@@ -248,6 +252,10 @@ const TakeQuiz = () => {
     const q = quiz.questions[currentIdx];
     const progressPercent = ((currentIdx + 1) / quiz.questions.length) * 100;
     const unansweredCount = countUnanswered();
+    const questionPanelVisibleRows = Math.ceil(QUESTION_PANEL_VISIBLE_LIMIT / QUESTION_PANEL_COLUMNS);
+    const questionPanelMaxHeight =
+      questionPanelVisibleRows * QUESTION_BUTTON_HEIGHT +
+      (questionPanelVisibleRows - 1) * QUESTION_BUTTON_GAP;
 
     return (
       <div className="max-w-[1200px] mx-auto pb-12">
@@ -359,7 +367,10 @@ const TakeQuiz = () => {
               <h4 className="text-xs font-black uppercase text-text-primary tracking-wider text-center border-b border-border pb-3">
                 {language === 'vi' ? 'Bảng câu hỏi' : 'Question Panel'}
               </h4>
-              <div className="grid grid-cols-5 gap-2">
+              <div
+                className="grid grid-cols-5 gap-2 overflow-y-auto pr-1 custom-scrollbar"
+                style={{ maxHeight: `${questionPanelMaxHeight}px` }}
+              >
                 {quiz.questions.map((_, idx) => {
                   const isCurrent = idx === currentIdx;
                   const isAnswered = !!userAnswers[idx.toString()];
