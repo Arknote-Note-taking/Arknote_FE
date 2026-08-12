@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import API from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { Layers, Plus, BookOpen, AlertCircle, RefreshCw, Check, ArrowLeft, ArrowRight, Eye, HelpCircle, Edit2, Trash2, Sparkles, Share2, Globe, Copy, CheckCircle, X, Search } from 'lucide-react';
+import { Layers, Plus, BookOpen, AlertCircle, RefreshCw, Check, ArrowLeft, ArrowRight, Eye, HelpCircle, Edit2, Trash2, Sparkles, Share2, Globe, Copy, CheckCircle, X, Search, Shuffle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useConfirm } from '../context/ConfirmContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -45,6 +45,67 @@ const isComparisonFlashcardFront = (frontText) => {
 const normalizeFlashcardsForDisplay = (cards = []) => (
   cards.filter(card => !isComparisonFlashcardFront(card?.front_text))
 );
+
+const getStudyProgressKey = (deckId) => `arknote:flashcards:study-progress:${deckId}`;
+
+const readStudyProgress = (deckId) => {
+  if (!deckId) return null;
+  try {
+    const raw = window.localStorage.getItem(getStudyProgressKey(deckId));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStudyProgress = (deckId, progress) => {
+  if (!deckId) return;
+  try {
+    window.localStorage.setItem(getStudyProgressKey(deckId), JSON.stringify(progress));
+  } catch {
+    // Ignore storage failures so study mode remains usable.
+  }
+};
+
+const clearStudyProgress = (deckId) => {
+  if (!deckId) return;
+  try {
+    window.localStorage.removeItem(getStudyProgressKey(deckId));
+  } catch {
+    // Ignore storage failures so reset still works in memory.
+  }
+};
+
+const applySavedCardOrder = (deckId, deckCards) => {
+  const progress = readStudyProgress(deckId);
+  if (!progress?.cardOrder?.length) return deckCards;
+
+  const cardById = new Map(deckCards.map(card => [card.id, card]));
+  const orderedCards = progress.cardOrder
+    .map(cardId => cardById.get(cardId))
+    .filter(Boolean);
+  const orderedIds = new Set(orderedCards.map(card => card.id));
+  const newCards = deckCards.filter(card => !orderedIds.has(card.id));
+
+  return [...orderedCards, ...newCards];
+};
+
+const getSavedCardIndex = (deckId, deckCards) => {
+  const progress = readStudyProgress(deckId);
+  if (!progress || deckCards.length === 0) return 0;
+  const index = Number(progress.currentCardIndex);
+  if (!Number.isInteger(index)) return 0;
+  return Math.min(Math.max(index, 0), deckCards.length - 1);
+};
+
+const shuffleCards = (deckCards) => {
+  const shuffled = [...deckCards];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
 
 const CARD_TERM_DELIMITERS = {
   tab: '\t',
@@ -366,16 +427,55 @@ const Flashcards = () => {
   const handleSelectDeck = async (deck) => {
     try {
       const res = await API.get(`/flashcards/${deck.id}`);
+      const normalizedCards = normalizeFlashcardsForDisplay(res.data.cards || []);
+      const orderedCards = applySavedCardOrder(deck.id, normalizedCards);
       setActiveDeck(res.data.deck);
-      setCards(normalizeFlashcardsForDisplay(res.data.cards || []));
+      setCards(orderedCards);
       setSelectedCardIds([]);
-      setCurrentCardIndex(0);
+      setCurrentCardIndex(getSavedCardIndex(deck.id, orderedCards));
       setIsFlipped(false);
       setStudyTab('study');
       setReviewMode(true);
     } catch (err) {
       toast.error('Không thể tải chi tiết bộ thẻ.');
     }
+  };
+
+  useEffect(() => {
+    if (!reviewMode || !activeDeck?.id || cards.length === 0) return;
+    writeStudyProgress(activeDeck.id, {
+      currentCardIndex,
+      cardOrder: cards.map(card => card.id),
+      updatedAt: new Date().toISOString()
+    });
+  }, [activeDeck?.id, cards, currentCardIndex, reviewMode]);
+
+  useEffect(() => {
+    if (cards.length === 0 || currentCardIndex <= cards.length - 1) return;
+    setCurrentCardIndex(cards.length - 1);
+    setIsFlipped(false);
+  }, [cards.length, currentCardIndex]);
+
+  const handleResetStudyProgress = () => {
+    if (!activeDeck?.id) return;
+    clearStudyProgress(activeDeck.id);
+    setIsFlipped(false);
+    setCurrentCardIndex(0);
+    toast.success(language === 'vi' ? '\u0110\u00e3 reset ti\u1ebfn \u0111\u1ed9 h\u1ecdc.' : 'Study progress reset.');
+  };
+
+  const handleShuffleStudyCards = () => {
+    if (!activeDeck?.id || cards.length <= 1) return;
+    const shuffledCards = shuffleCards(cards);
+    setCards(shuffledCards);
+    setCurrentCardIndex(0);
+    setIsFlipped(false);
+    writeStudyProgress(activeDeck.id, {
+      currentCardIndex: 0,
+      cardOrder: shuffledCards.map(card => card.id),
+      updatedAt: new Date().toISOString()
+    });
+    toast.success(language === 'vi' ? '\u0110\u00e3 tr\u1ed9n th\u1ee9 t\u1ef1 flashcard.' : 'Flashcards shuffled.');
   };
 
   const handleSubmitGrade = async (grade) => {
@@ -395,6 +495,7 @@ const Flashcards = () => {
         }, 150);
       } else {
         toast.success('Chúc mừng! Bạn đã hoàn thành ôn tập bộ thẻ này!');
+        clearStudyProgress(activeDeck?.id);
         setReviewMode(false);
         setActiveDeck(null);
         fetchDecks();
@@ -864,6 +965,34 @@ const Flashcards = () => {
                 <div className="flex justify-between items-center text-xs text-text-secondary font-bold px-2">
                   <span>{language === 'vi' ? 'Tiến độ học tập' : 'Learning progress'}</span>
                   <span>{language === 'vi' ? 'Thẻ' : 'Card'} {currentCardIndex + 1} / {cards.length}</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="h-2 bg-black/5 dark:bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${((currentCardIndex + 1) / cards.length) * 100}%` }}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2 px-2">
+                    <button
+                      type="button"
+                      onClick={handleResetStudyProgress}
+                      className="flex items-center space-x-1.5 border border-border bg-surface hover:bg-black/5 dark:hover:bg-white/5 text-text-primary px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>{language === 'vi' ? 'Reset ti\u1ebfn \u0111\u1ed9' : 'Reset progress'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleShuffleStudyCards}
+                      disabled={cards.length <= 1}
+                      className="flex items-center space-x-1.5 border border-border bg-surface hover:bg-black/5 dark:hover:bg-white/5 text-text-primary px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" />
+                      <span>{language === 'vi' ? 'Tr\u1ed9n th\u1ebb' : 'Shuffle cards'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Card Container */}
